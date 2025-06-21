@@ -1,5 +1,5 @@
 # Core dependencies for Logistics Document Generator
-# Conda environment: logistics-doc-generator
+# Python 3.12.11 - Conda environment: logistics-doc-generator
 pandas>=2.3.0
 python-docx>=1.2.0
 openpyxl>=3.1.5

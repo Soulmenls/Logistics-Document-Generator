@@ -349,11 +349,13 @@ The application uses sophisticated techniques to preserve Word document formatti
 ### GUI-Specific Troubleshooting
 
 **Display Issues**:
+
 - **Fonts not loading**: GUI automatically detects and uses system fonts
 - **Layout problems**: Try resizing the window to trigger re-centering
 - **Table not updating**: Click "LOAD DATA" to refresh the data
 
 **Performance Issues**:
+
 - **Slow loading**: Large Excel files may take time to process
 - **Memory usage**: Close other applications if processing large datasets
 - **UI responsiveness**: Check console for background processing status

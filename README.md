@@ -1,20 +1,28 @@
 # Logistics Document Generator
 
-A professional Python application that generates multi-page shipping placards from Excel data using Word templates. Features enterprise-grade logging, bulk processing capabilities, and advanced document formatting preservation.
+A professional Python application that generates multi-page shipping placards from Excel data using Word templates. Features both a modern GUI interface and command-line operation, with enterprise-grade logging, bulk processing capabilities, and advanced document formatting preservation.
 
 ## 🚀 Key Features
 
+### 🖥️ Modern GUI Interface (NEW!)
+- **Interactive Data Table**: Visual shipment selection with real-time filtering and search
+- **Advanced Filtering**: Multi-column filters with search and sort capabilities
+- **Real-time Progress**: Visual progress tracking with detailed console logging
+- **Professional Styling**: Modern dark theme with consistent button styling and layout
+- **Error Handling**: Comprehensive error reporting and recovery mechanisms
+- **Cross-platform**: Works on Windows, macOS, and Linux with automatic font detection
+
+### 📊 Core Processing Features
 - **Dual Processing Modes**: Manual entry for specific shipments or bulk processing for entire datasets
 - **Advanced Template Engine**: Preserves complex Word formatting across all generated documents
 - **Enterprise Logging**: Comprehensive CSV audit trail with session tracking and performance metrics
-- **Real-time Interface**: Timestamped console output with professional user experience
 - **Data Validation**: Robust input validation and error handling throughout processing pipeline
 - **High Performance**: Memory-efficient processing with pandas vectorization for large datasets
 
 ## 📋 Technical Requirements
 
 - **Python**: 3.12.11+ (recommended for optimal performance)
-- **Dependencies**: pandas, python-docx, openpyxl
+- **Dependencies**: pandas, python-docx, openpyxl, dearpygui
 - **Platform**: Cross-platform (Windows, macOS, Linux)
 - **Memory**: Sufficient for Excel dataset processing (typically <100MB)
 
@@ -27,7 +35,10 @@ A professional Python application that generates multi-page shipping placards fr
 conda env create -f environment.yml
 conda activate logistics-doc-generator
 
-# Run application
+# Run GUI application (recommended)
+python placard_generator_gui.py
+
+# Or run command-line version
 python placard_generator.py
 ```
 
@@ -35,6 +46,11 @@ python placard_generator.py
 
 ```bash
 pip install -r requirements.txt
+
+# Run GUI application
+python placard_generator_gui.py
+
+# Or run command-line version
 python placard_generator.py
 ```
 
@@ -42,15 +58,89 @@ python placard_generator.py
 
 ```text
 Logistics Document Generator/
-├── Data/                   # Excel data files (input)
-├── Template/               # Word template files
+├── Data/                       # Excel data files (input)
+├── Template/                   # Word template files
 │   └── placard_template.docx
-├── Placards/              # Generated documents (auto-created)
-├── Logs/                  # CSV audit logs (auto-created)
-├── placard_generator.py   # Main application
-├── environment.yml        # Conda environment
-└── requirements.txt       # Python dependencies
+├── Placards/                  # Generated documents (auto-created)
+├── Logs/                      # CSV audit logs (auto-created)
+├── placard_generator_gui.py   # Modern GUI application (NEW!)
+├── placard_generator.py       # Command-line application
+├── environment.yml            # Conda environment
+└── requirements.txt           # Python dependencies
 ```
+
+## 🖥️ GUI Application Guide
+
+### Getting Started with the GUI
+
+1. **Launch the Application**
+   ```bash
+   python placard_generator_gui.py
+   ```
+
+2. **Load Your Data**
+   - Click "LOAD DATA" button
+   - Application automatically finds Excel files in the `Data/` folder
+   - View loaded shipments in the interactive table
+
+3. **Filter and Select Shipments**
+   - Use the search box for quick filtering
+   - Apply column-specific filters for precise selection
+   - Use "SELECT ALL" or "DESELECT ALL" for bulk operations
+   - Individual checkboxes for granular control
+
+4. **Generate Documents**
+   - Click "GENERATE SELECTED" for chosen shipments
+   - Click "GENERATE ALL" for complete dataset processing
+   - Monitor progress with the real-time progress bar
+   - Review results in the console log
+
+### GUI Features Overview
+
+#### 🎛️ Control Bar
+- **LOAD DATA**: Load Excel data from the Data folder
+- **CLEAR FILTERS**: Reset all active filters
+- **Search Box**: Real-time search across shipments and destinations
+- **SELECT ALL / DESELECT ALL**: Bulk selection controls
+
+#### 📊 Data Table
+- **Interactive Selection**: Click checkboxes to select individual shipments
+- **Column Sorting**: Click headers to sort data
+- **Real-time Filtering**: Instantly see filtered results
+- **Comprehensive Data View**: All shipment details in organized columns
+
+#### 📈 Status and Progress
+- **Selection Counter**: Shows selected vs. total shipments
+- **Unit Counter**: Displays total quantity for selected items
+- **Progress Bar**: Real-time processing progress
+- **Status Messages**: Clear feedback on all operations
+
+#### 🖥️ Console Log
+- **Real-time Logging**: All operations logged with timestamps
+- **Error Reporting**: Detailed error messages and stack traces
+- **Performance Metrics**: Processing rates and timing information
+- **Clear Console**: Reset log for new operations
+
+### Advanced GUI Features
+
+#### 🔍 Multi-Column Filtering
+- Click column headers to access advanced filters
+- Search within specific columns
+- Sort filter options alphabetically
+- Select multiple values per column
+- Combine filters across columns for precise results
+
+#### ⚡ Performance Optimizations
+- **Lazy Loading**: Efficient memory usage for large datasets
+- **Safe Operations**: Comprehensive error handling prevents crashes
+- **Cross-platform Fonts**: Automatic font detection and fallbacks
+- **Responsive UI**: Smooth operation even with large datasets
+
+#### 🛡️ Error Handling
+- **Data Validation**: Comprehensive checks before processing
+- **File System Checks**: Validates directories and permissions
+- **Processing Recovery**: Continues processing even if individual shipments fail
+- **User Feedback**: Clear error messages and recovery suggestions
 
 ## 📊 Data Requirements
 
@@ -94,9 +184,21 @@ Logistics Document Generator/
 {{Start Ship}}     - Formatted ship date
 ```
 
-## 🎯 Usage
+## 🎯 Usage Examples
 
-### Processing Options
+### GUI Workflow Example
+
+```text
+1. Launch GUI: python placard_generator_gui.py
+2. Click "LOAD DATA" → System finds and loads Excel file
+3. Use search: "Chicago" → Filters to Chicago shipments
+4. Select specific shipments using checkboxes
+5. Click "GENERATE SELECTED" → Progress bar shows processing
+6. Review results in console log
+7. Find generated documents in Placards/ folder
+```
+
+### Command-Line Usage
 
 #### 1. Manual Entry
 
@@ -111,7 +213,7 @@ Logistics Document Generator/
 - Requires confirmation before starting
 - Perfect for complete dataset processing
 
-### Example Session
+### Example Command-Line Session
 
 ```text
 [2024-01-15 14:30:25] === Shipping Placard Generator ===
@@ -158,12 +260,12 @@ Timestamp, Session_ID, Event_Type, Shipment_Number, DO_Count,
 Records_Found, Status, Output_File, Error_Message, Processing_Mode, Duration_Seconds
 ```
 
-### Real-time Timestamped Interface
+### Real-time Interface Features
 
-- All console output includes `[YYYY-MM-DD HH:MM:SS]` timestamps
-- Professional interface suitable for enterprise environments
-- Real-time progress tracking and status updates
-- Performance monitoring and debugging capabilities
+- **GUI Console**: Real-time timestamped logging with color-coded messages
+- **Progress Tracking**: Visual progress bars with detailed status updates
+- **Performance Monitoring**: Processing rates and timing metrics
+- **Error Recovery**: Comprehensive error handling with user-friendly messages
 
 ### Advanced Data Processing
 
@@ -184,6 +286,16 @@ Records_Found, Status, Output_File, Error_Message, Processing_Mode, Duration_Sec
 5. **Multi-page Assembly**: Creates separate pages per DO #
 
 ## 🔧 Advanced Configuration
+
+### GUI Customization
+
+The GUI features a professional dark theme with:
+
+- **Solid Color Design**: Consistent dark blue-gray background
+- **Standardized Buttons**: Uniform styling with proper text centering
+- **Responsive Layout**: Automatic centering and scaling
+- **Cross-platform Fonts**: Automatic detection of system fonts
+- **Accessibility**: High contrast colors and readable text
 
 ### Formatting Preservation
 
@@ -215,12 +327,26 @@ The application uses sophisticated techniques to preserve Word document formatti
 - **No Excel file found**: Verify file is in `Data/` folder with correct naming
 - **Template missing**: Confirm `placard_template.docx` exists in `Template/` folder
 - **Missing columns**: Check all 10 required columns exist (case-sensitive)
+- **GUI won't start**: Ensure all dependencies are installed (`pip install -r requirements.txt`)
 
 **Processing Issues**:
 
 - **Invalid shipment format**: Must be exactly 10 digits
 - **No data found**: Verify shipment exists and meets DO # validation (8+ digits)
 - **File save errors**: Check write permissions and ensure files aren't open elsewhere
+- **GUI freezing**: Check console log for detailed error messages
+
+### GUI-Specific Troubleshooting
+
+**Display Issues**:
+- **Fonts not loading**: GUI automatically detects and uses system fonts
+- **Layout problems**: Try resizing the window to trigger re-centering
+- **Table not updating**: Click "LOAD DATA" to refresh the data
+
+**Performance Issues**:
+- **Slow loading**: Large Excel files may take time to process
+- **Memory usage**: Close other applications if processing large datasets
+- **UI responsiveness**: Check console for background processing status
 
 ### Validation Rules
 
@@ -236,6 +362,7 @@ The application uses sophisticated techniques to preserve Word document formatti
 - **Memory-based Processing**: All operations use in-memory datasets
 - **Template Reuse**: Efficient document copying with formatting preservation
 - **Batch Processing**: Multiple shipments processed in single session
+- **GUI Optimizations**: Lazy loading and safe operations prevent UI freezing
 
 ## 🎯 Output Specifications
 
@@ -256,42 +383,60 @@ The application uses sophisticated techniques to preserve Word document formatti
 
 ## 🏗 Architecture Overview
 
-Built using object-oriented design with the `PlacardGenerator` class:
+Built using object-oriented design with comprehensive error handling:
 
+### GUI Architecture
+- **Dear PyGui Framework**: Modern, fast GUI with professional styling
+- **Threaded Processing**: Background processing prevents UI freezing
+- **Safe Operations**: Comprehensive error handling for all GUI operations
+- **Cross-platform Compatibility**: Works on Windows, macOS, and Linux
+
+### Core Engine (`PlacardGenerator` class)
 - **Memory-efficient processing** with pandas vectorized operations
 - **Advanced formatting preservation** across document generations
 - **Robust error handling** with detailed validation and user feedback
 - **Batch processing capabilities** for enterprise-scale operations
 - **Comprehensive logging** for audit trails and performance monitoring
-- **Professional user interface** with real-time feedback and timestamps
 
 ## 🔄 Development History
 
-This application has evolved from a basic document generator into a professional, enterprise-ready logistics solution with the following major enhancements:
+### Version 2.0.0 - GUI Release (Current)
 
-### Core Enhancements
+**Major New Features**:
+1. **Professional GUI Interface**: Modern Dear PyGui-based interface with dark theme
+2. **Interactive Data Management**: Visual table with filtering, searching, and selection
+3. **Real-time Processing**: Progress bars and live console logging
+4. **Enhanced Error Handling**: Comprehensive error recovery and user feedback
+5. **Cross-platform Support**: Automatic font detection and platform compatibility
+6. **Performance Optimizations**: Safe operations and memory-efficient processing
 
+### Version 1.0.0 - Command Line Foundation
+
+**Core Enhancements**:
 1. **Bulk Processing System**: Complete dataset processing with progress tracking
 2. **Enterprise CSV Logging**: 11-column audit trail with session management
 3. **Timestamped Interface**: Professional console output with real-time tracking
 4. **Advanced Data Validation**: Comprehensive input validation and error handling
 5. **Performance Optimization**: Memory-efficient processing with pandas vectorization
 6. **Professional Documentation**: Enterprise-ready documentation and user guides
-7. **Repository Management**: Professional git integration with data privacy considerations
 
 ### Impact
 
-**Transformation**: From basic single-shipment tool → Professional enterprise solution
+**Transformation**: From basic document generator → Professional enterprise solution with modern GUI
 
-**Capabilities Added**:
+**Current Capabilities**:
 
-- ✅ Bulk processing (266+ shipments automatically)
+- ✅ Modern GUI interface with professional styling
+- ✅ Interactive data management and real-time filtering
+- ✅ Bulk processing with visual progress tracking
 - ✅ Complete audit trail and compliance logging
-- ✅ Real-time timestamped user interface
-- ✅ Enterprise error handling and resilience
-- ✅ Professional documentation and support
+- ✅ Cross-platform compatibility with automatic font detection
+- ✅ Enterprise error handling and recovery mechanisms
 - ✅ Performance monitoring and optimization
+- ✅ Comprehensive documentation and user support
 
 ---
 
-**Ready for Enterprise Use**: Full compliance capabilities, professional interface, comprehensive error handling, and complete documentation for production environments.
+**Ready for Enterprise Use**: Full compliance capabilities, modern GUI interface, comprehensive error handling, and complete documentation for production environments.
+
+**Recommended Usage**: Use the GUI interface (`placard_generator_gui.py`) for interactive work and the command-line interface (`placard_generator.py`) for automation and scripting.

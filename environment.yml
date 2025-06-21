@@ -1,0 +1,11 @@
+name: logistics-doc-generator
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - pandas>=2.3.0
+    - python-docx>=1.2.0
+    - openpyxl>=3.1.5 

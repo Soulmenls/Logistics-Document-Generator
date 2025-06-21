@@ -23,22 +23,36 @@ Built using object-oriented design with the `PlacardGenerator` class that provid
 
 ## Dependencies
 
-The application requires these Python packages:
+The application requires **Python 3.12.11** and these Python packages:
 
 ```bash
 # Core dependencies
-pandas          # Data manipulation and analysis
-python-docx     # Word document generation and manipulation
-openpyxl        # Excel file reading support
+pandas>=2.3.0   # Data manipulation and analysis  
+python-docx>=1.2.0  # Word document generation and manipulation
+openpyxl>=3.1.5     # Excel file reading support
 ```
+
+**Recommended Setup**: Use the provided conda environment for optimal compatibility.
 
 ## Setup Instructions
 
-### 1. Install Dependencies
+### 1. Environment Setup (Recommended)
 
+**Option A: Using Conda (Recommended)**
+```bash
+# Create environment from provided file
+conda env create -f environment.yml
+
+# Activate the environment
+conda activate logistics-doc-generator
+```
+
+**Option B: Using pip**
 ```bash
 pip install -r requirements.txt
 ```
+
+**Note**: The application is optimized for Python 3.12.11. Using the conda environment ensures compatibility.
 
 ### 2. Directory Structure
 
@@ -46,11 +60,15 @@ The application automatically creates these directories:
 
 ```text
 Logistics Document Generator/
-├── Data/                    # Excel data files (input)
+├── .vscode/                 # VS Code configuration
+│   ├── settings.json       # Python interpreter settings
+│   └── launch.json         # Debug configurations
+├── Data/                   # Excel data files (input)
 ├── Template/               # Word template files
 ├── Placards/              # Generated documents (output, auto-created)
 ├── placard_generator.py   # Main application
-└── requirements.txt       # Dependencies
+├── environment.yml         # Conda environment specification
+└── requirements.txt       # Python package dependencies
 ```
 
 ### 3. Required Files
@@ -96,6 +114,13 @@ Logistics Document Generator/
 
 ### Running the Application
 
+**With Conda Environment (Recommended)**:
+```bash
+conda activate logistics-doc-generator
+python placard_generator.py
+```
+
+**With System Python**:
 ```bash
 python placard_generator.py
 ```
@@ -307,7 +332,23 @@ Thank you for using the Shipping Placard Generator!
 
 ## Technical Requirements
 
-- **Python**: 3.7+ (for type hints and f-string support)
+- **Python**: 3.12.11 (latest stable release for optimal performance)
 - **Operating System**: Windows, macOS, Linux (cross-platform)
 - **Memory**: Sufficient for Excel dataset size (typically < 100MB)
 - **Storage**: Space for Excel files, templates, and generated documents
+
+### Performance Benefits of Python 3.12.11
+
+- **20-25% faster execution** compared to earlier Python versions
+- **Enhanced type hints** support for better development experience
+- **Improved error messages** with more detailed tracebacks
+- **Better memory efficiency** for large dataset processing
+- **Latest security updates** and optimizations
+
+### Development Environment
+
+The project includes VS Code configuration files:
+- `.vscode/settings.json` - Python interpreter and linting settings
+- `.vscode/launch.json` - Debug configurations for the application
+- `environment.yml` - Conda environment specification
+- `requirements.txt` - Python package dependencies

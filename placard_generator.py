@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Interactive Shipping Placard Generator
+Logistics Document Generator
 
 This script generates multi-page shipping placards from Excel data using Word templates.
 Reads from Data folder, uses Template folder for templates, outputs to Placards folder.
@@ -21,7 +21,7 @@ from docx.oxml.ns import nsdecls
 
 
 class PlacardGenerator:
-    """High-performance shipping placard generator"""
+    """High-performance logistics document generator"""
     
     def __init__(self):
         self.df: Optional[pd.DataFrame] = None

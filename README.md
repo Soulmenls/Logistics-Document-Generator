@@ -1,4 +1,4 @@
-# Shipping Placard Generator
+# Logistics Document Generator
 
 An interactive, high-performance Python script that generates multi-page shipping
 placards on-demand using Excel data and Word templates.

@@ -5,6 +5,7 @@ A professional Python application that generates multi-page shipping placards fr
 ## 🚀 Key Features
 
 ### 🖥️ Modern GUI Interface (NEW!)
+
 - **Interactive Data Table**: Visual shipment selection with real-time filtering and search
 - **Advanced Filtering**: Multi-column filters with search and sort capabilities
 - **Real-time Progress**: Visual progress tracking with detailed console logging
@@ -13,6 +14,7 @@ A professional Python application that generates multi-page shipping placards fr
 - **Cross-platform**: Works on Windows, macOS, and Linux with automatic font detection
 
 ### 📊 Core Processing Features
+
 - **Dual Processing Modes**: Manual entry for specific shipments or bulk processing for entire datasets
 - **Advanced Template Engine**: Preserves complex Word formatting across all generated documents
 - **Enterprise Logging**: Comprehensive CSV audit trail with session tracking and performance metrics
@@ -74,6 +76,7 @@ Logistics Document Generator/
 ### Getting Started with the GUI
 
 1. **Launch the Application**
+
    ```bash
    python placard_generator_gui.py
    ```
@@ -98,24 +101,28 @@ Logistics Document Generator/
 ### GUI Features Overview
 
 #### 🎛️ Control Bar
+
 - **LOAD DATA**: Load Excel data from the Data folder
 - **CLEAR FILTERS**: Reset all active filters
 - **Search Box**: Real-time search across shipments and destinations
 - **SELECT ALL / DESELECT ALL**: Bulk selection controls
 
 #### 📊 Data Table
+
 - **Interactive Selection**: Click checkboxes to select individual shipments
 - **Column Sorting**: Click headers to sort data
 - **Real-time Filtering**: Instantly see filtered results
 - **Comprehensive Data View**: All shipment details in organized columns
 
 #### 📈 Status and Progress
+
 - **Selection Counter**: Shows selected vs. total shipments
 - **Unit Counter**: Displays total quantity for selected items
 - **Progress Bar**: Real-time processing progress
 - **Status Messages**: Clear feedback on all operations
 
 #### 🖥️ Console Log
+
 - **Real-time Logging**: All operations logged with timestamps
 - **Error Reporting**: Detailed error messages and stack traces
 - **Performance Metrics**: Processing rates and timing information
@@ -124,6 +131,7 @@ Logistics Document Generator/
 ### Advanced GUI Features
 
 #### 🔍 Multi-Column Filtering
+
 - Click column headers to access advanced filters
 - Search within specific columns
 - Sort filter options alphabetically
@@ -131,12 +139,14 @@ Logistics Document Generator/
 - Combine filters across columns for precise results
 
 #### ⚡ Performance Optimizations
+
 - **Lazy Loading**: Efficient memory usage for large datasets
 - **Safe Operations**: Comprehensive error handling prevents crashes
 - **Cross-platform Fonts**: Automatic font detection and fallbacks
 - **Responsive UI**: Smooth operation even with large datasets
 
 #### 🛡️ Error Handling
+
 - **Data Validation**: Comprehensive checks before processing
 - **File System Checks**: Validates directories and permissions
 - **Processing Recovery**: Continues processing even if individual shipments fail
@@ -386,12 +396,14 @@ The application uses sophisticated techniques to preserve Word document formatti
 Built using object-oriented design with comprehensive error handling:
 
 ### GUI Architecture
+
 - **Dear PyGui Framework**: Modern, fast GUI with professional styling
 - **Threaded Processing**: Background processing prevents UI freezing
 - **Safe Operations**: Comprehensive error handling for all GUI operations
 - **Cross-platform Compatibility**: Works on Windows, macOS, and Linux
 
 ### Core Engine (`PlacardGenerator` class)
+
 - **Memory-efficient processing** with pandas vectorized operations
 - **Advanced formatting preservation** across document generations
 - **Robust error handling** with detailed validation and user feedback
@@ -403,6 +415,7 @@ Built using object-oriented design with comprehensive error handling:
 ### Version 2.0.0 - GUI Release (Current)
 
 **Major New Features**:
+
 1. **Professional GUI Interface**: Modern Dear PyGui-based interface with dark theme
 2. **Interactive Data Management**: Visual table with filtering, searching, and selection
 3. **Real-time Processing**: Progress bars and live console logging
@@ -413,6 +426,7 @@ Built using object-oriented design with comprehensive error handling:
 ### Version 1.0.0 - Command Line Foundation
 
 **Core Enhancements**:
+
 1. **Bulk Processing System**: Complete dataset processing with progress tracking
 2. **Enterprise CSV Logging**: 11-column audit trail with session management
 3. **Timestamped Interface**: Professional console output with real-time tracking

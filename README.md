@@ -5,8 +5,9 @@ A high-performance, class-based Python application that generates professional m
 ## Architecture Overview
 
 Built using object-oriented design with the `PlacardGenerator` class that provides:
+
 - **Memory-efficient data processing** with pandas vectorized operations
-- **Advanced formatting preservation** across document generations  
+- **Advanced formatting preservation** across document generations
 - **Robust error handling** with detailed validation and user feedback
 - **Batch processing capabilities** for multiple shipments in one session
 
@@ -43,7 +44,7 @@ pip install -r requirements.txt
 
 The application automatically creates these directories:
 
-```
+```text
 Logistics Document Generator/
 ├── Data/                    # Excel data files (input)
 ├── Template/               # Word template files
@@ -56,13 +57,14 @@ Logistics Document Generator/
 
 #### Excel Data File
 
-**Location**: `Data/` folder  
-**Naming**: Must start with `"WM-SPN-CUS105 Open Order Report"`  
-**Formats**: `.xlsx` or `.xls` supported  
+**Location**: `Data/` folder
+**Naming**: Must start with `"WM-SPN-CUS105 Open Order Report"`
+**Formats**: `.xlsx` or `.xls` supported
 
 **Required Columns** (case-sensitive):
+
 - `Shipment Nbr` - 10-digit shipment identifier
-- `DO #` - Delivery Order number (minimum 8 digits)  
+- `DO #` - Delivery Order number (minimum 8 digits)
 - `Label Type` - Shipment classification
 - `Order Type` - Order classification
 - `Pmt Term` - Payment terms
@@ -74,10 +76,10 @@ Logistics Document Generator/
 
 #### Word Template
 
-**Location**: `Template/placard_template.docx`  
+**Location**: `Template/placard_template.docx`
 **Placeholders** (exact format required):
 
-```
+```text
 {{Ship To}}        - Destination address/information
 {{Shipment Nbr}}   - Shipment number (cleaned of decimals)
 {{PO}}             - Purchase orders (newline-separated if multiple)
@@ -118,7 +120,7 @@ python placard_generator.py
 ### Data Processing Pipeline
 
 1. **File Discovery**: Locates Excel files using glob pattern matching
-2. **Data Loading**: Pandas reads Excel with automatic type inference  
+2. **Data Loading**: Pandas reads Excel with automatic type inference
 3. **Data Cleaning**: Removes rows with empty Shipment Nbr
 4. **Validation**: Filters out invalid DO # formats using regex validation
 5. **Memory Storage**: Keeps validated data in memory for fast lookups
@@ -128,7 +130,7 @@ python placard_generator.py
 For each shipment:
 
 1. **Data Grouping**: Groups records by DO # using pandas groupby
-2. **Data Aggregation**: 
+2. **Data Aggregation**:
    - Combines unique PO numbers (newline-separated)
    - Sums Original Qty values per DO #
    - Preserves shipment-level metadata
@@ -150,13 +152,19 @@ The application uses sophisticated formatting preservation techniques:
 
 ### Data Transformation Details
 
-**Shipment-Level Data** (consistent across all pages):
+#### Shipment-Level Data
+
+(consistent across all pages):
+
 - `Shipment Nbr`: Converted to clean integer (removes `.0` decimals)
 - `Label Type`, `Order Type`, `Pmt Term`: Used as-is from first record
 - `Start Ship`: Formatted as MM/DD/YYYY using pandas datetime parsing
 - `VAS`: Converted to "VAS" (if Y) or "NOT VAS" (if N or empty)
 
-**DO-Level Data** (specific per page):
+#### DO-Level Data
+
+(specific per page):
+
 - `DO #`: Formatted with leading zeros to 10 digits total (e.g., `"66455734"` → `"0066455734"`)
 - `Ship To`: From first record of DO # group
 - `PO`: All unique POs for DO #, joined with newlines
@@ -165,17 +173,20 @@ The application uses sophisticated formatting preservation techniques:
 ## Error Handling & Validation
 
 ### File Validation
+
 - **Missing Excel file**: Clear error with search pattern details
 - **Missing template**: Specific path validation with helpful messages
 - **Permission errors**: Graceful handling of read/write access issues
 
-### Data Validation  
+### Data Validation
+
 - **Column verification**: Reports specific missing required columns
 - **Shipment number format**: Regex validation for exact 10-digit requirement
 - **DO # format**: Minimum 8-digit validation with detailed error messages
 - **Data existence**: Validates shipment exists in filtered dataset
 
 ### Processing Resilience
+
 - **Continue on error**: Processes remaining shipments after individual failures
 - **Detailed logging**: Reports processing status for each DO # and shipment
 - **Session summaries**: Provides counts of successful/failed operations
@@ -183,18 +194,20 @@ The application uses sophisticated formatting preservation techniques:
 ## Performance Optimizations
 
 - **Single file read**: Excel loaded once at startup, not per shipment
-- **Vectorized operations**: Pandas operations for efficient filtering and grouping  
+- **Vectorized operations**: Pandas operations for efficient filtering and grouping
 - **Memory-based processing**: All operations work with in-memory datasets
 - **Batch processing**: Multiple shipments processed in single session
 - **Template reuse**: Efficient document copying with formatting preservation
 
 ## Output Specifications
 
-**File Location**: `Placards/` folder (auto-created)  
-**Naming Convention**: `Placard_[ShipmentNumber].docx`  
-**Content Structure**: Multi-page document with one page per DO #  
-**Formatting**: Complete template formatting preserved across all pages  
-**Data Formatting**: 
+**File Location**: `Placards/` folder (auto-created)
+**Naming Convention**: `Placard_[ShipmentNumber].docx`
+**Content Structure**: Multi-page document with one page per DO #
+**Formatting**: Complete template formatting preserved across all pages
+
+**Data Formatting**:
+
 - DO # with leading zeros (10 digits)
 - Quantities with "Units" suffix
 - Clean shipment numbers (no decimals)
@@ -204,41 +217,48 @@ The application uses sophisticated formatting preservation techniques:
 
 ### Setup Issues
 
-**"No Excel file found"**
+#### No Excel file found
+
 - Verify file is in `Data/` folder
 - Check filename starts with `"WM-SPN-CUS105 Open Order Report"`
 - Ensure file extension is `.xlsx` or `.xls`
 
-**"Template file not found"**  
+#### Template file not found
+
 - Confirm `placard_template.docx` exists in `Template/` folder
 - Check exact spelling and capitalization
 - Verify file is not corrupted or password-protected
 
 ### Data Issues
 
-**"Missing required columns"**
+#### Missing required columns
+
 - Excel must contain all 10 required columns (case-sensitive)
 - Check for extra spaces or different casing in column names
 - Verify columns are not hidden in Excel
 
-**"Invalid shipment number format"**
+#### Invalid shipment number format
+
 - Shipment numbers must be exactly 10 digits
 - Remove any letters, spaces, or special characters
 - Check for leading/trailing spaces in input
 
-**"No data found for shipment"**  
+#### No data found for shipment
+
 - Verify shipment number exists in Excel data
 - Check if shipment was filtered out during validation
 - Ensure DO # values meet minimum 8-digit requirement
 
 ### Processing Issues
 
-**"Error saving document"**
-- Check write permissions to `Placards/` folder  
+#### Error saving document
+
+- Check write permissions to `Placards/` folder
 - Ensure target file is not open in another application
 - Verify sufficient disk space available
 
-**"Error copying formatted content"**
+#### Error copying formatted content
+
 - Template file may be corrupted or incompatible
 - Try recreating template with simpler formatting
 - Check for unsupported Word features in template

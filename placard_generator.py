@@ -10,6 +10,7 @@ import os
 import sys
 import glob
 import re
+import csv
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any, cast
 
@@ -32,18 +33,87 @@ class PlacardGenerator:
         self.data_folder = "Data"
         self.template_folder = "Template"
         self.output_folder = "Placards"
+        self.log_folder = "Logs"
+        self.log_file = None
+        
+    def get_timestamp(self) -> str:
+        """Get a readable timestamp for console output"""
+        return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
+    
+    def print_with_timestamp(self, message: str) -> None:
+        """Print message with timestamp prefix"""
+        print(f"{self.get_timestamp()} {message}")
         
     def setup_directories(self) -> bool:
         """Ensure required directories exist"""
         try:
-            for folder in [self.data_folder, self.template_folder, self.output_folder]:
+            for folder in [self.data_folder, self.template_folder, self.output_folder, self.log_folder]:
                 if not os.path.exists(folder):
                     os.makedirs(folder)
-                    print(f"Created directory: {folder}")
+                    self.print_with_timestamp(f"Created directory: {folder}")
             return True
         except Exception as e:
-            print(f"Error creating directories: {e}")
+            self.print_with_timestamp(f"Error creating directories: {e}")
             return False
+    
+    def initialize_log(self) -> bool:
+        """Initialize CSV log file with headers"""
+        try:
+            # Create log filename with timestamp at front - more readable format
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            self.log_file = os.path.join(self.log_folder, f"{timestamp}-placard_processing_log.csv")
+            
+            # Create CSV with headers
+            with open(self.log_file, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow([
+                    'Timestamp',
+                    'Session_ID',
+                    'Event_Type',
+                    'Shipment_Number',
+                    'DO_Count',
+                    'Records_Found',
+                    'Status',
+                    'Output_File',
+                    'Error_Message',
+                    'Processing_Mode',
+                    'Duration_Seconds'
+                ])
+            
+            self.print_with_timestamp(f"Logging to: {self.log_file}")
+            return True
+            
+        except Exception as e:
+            self.print_with_timestamp(f"Warning: Could not initialize log file: {e}")
+            return False
+    
+    def log_event(self, event_type: str, shipment_number: Optional[str] = None, 
+                  do_count: Optional[int] = None, records_found: Optional[int] = None,
+                  status: str = "SUCCESS", output_file: Optional[str] = None,
+                  error_message: Optional[str] = None, processing_mode: Optional[str] = None,
+                  duration: Optional[float] = None) -> None:
+        """Log an event to the CSV file"""
+        if not self.log_file:
+            return
+            
+        try:
+            with open(self.log_file, 'a', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow([
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    datetime.now().strftime("%Y%m%d_%H%M%S"),  # Session ID based on startup time
+                    event_type,
+                    shipment_number or "",
+                    do_count or "",
+                    records_found or "",
+                    status,
+                    output_file or "",
+                    error_message or "",
+                    processing_mode or "",
+                    f"{duration:.2f}" if duration else ""
+                ])
+        except Exception as e:
+            self.print_with_timestamp(f"Warning: Could not write to log file: {e}")
     
     def find_excel_file(self) -> Optional[str]:
         """Find Excel file starting with 'WM-SPN-CUS105 Open Order Report' in Data folder"""
@@ -56,11 +126,11 @@ class PlacardGenerator:
             files = glob.glob(pattern)
         
         if not files:
-            print(f"ERROR: No Excel file found in '{self.data_folder}' folder starting with 'WM-SPN-CUS105 Open Order Report'")
+            self.print_with_timestamp(f"ERROR: No Excel file found in '{self.data_folder}' folder starting with 'WM-SPN-CUS105 Open Order Report'")
             return None
         
         if len(files) > 1:
-            print(f"Multiple Excel files found. Using: {files[0]}")
+            self.print_with_timestamp(f"Multiple Excel files found. Using: {files[0]}")
         
         return files[0]
     
@@ -80,24 +150,28 @@ class PlacardGenerator:
     
     def load_and_prepare_data(self) -> bool:
         """Load Excel file and prepare data with validation"""
-        print("Loading and preparing data...")
+        self.print_with_timestamp("Loading and preparing data...")
+        start_time = datetime.now()
         
         # Find Excel file
         excel_file = self.find_excel_file()
         if not excel_file:
+            self.log_event("DATA_LOAD", status="FAILED", error_message="Excel file not found")
             return False
         
         try:
             # Load Excel file
-            print(f"Loading file: {excel_file}")
+            self.print_with_timestamp(f"Loading file: {excel_file}")
             df = pd.read_excel(excel_file)
-            print(f"Loaded {len(df)} rows from Excel file")
+            self.print_with_timestamp(f"Loaded {len(df)} rows from Excel file")
             
             # Check for required columns
             missing_columns = [col for col in self.required_columns if col not in df.columns]
             if missing_columns:
-                print(f"ERROR: Missing required columns: {missing_columns}")
-                print(f"Available columns: {list(df.columns)}")
+                error_msg = f"Missing required columns: {missing_columns}"
+                self.print_with_timestamp(f"ERROR: {error_msg}")
+                self.print_with_timestamp(f"Available columns: {list(df.columns)}")
+                self.log_event("DATA_LOAD", status="FAILED", error_message=error_msg)
                 return False
             
             # Filter out rows with empty Shipment Nbr
@@ -106,23 +180,42 @@ class PlacardGenerator:
             # Cast to Series to access .str accessor
             shipment_series = cast(pd.Series, df['Shipment Nbr'].astype(str))
             df = df[shipment_series.str.strip() != '']
-            print(f"Removed {initial_count - len(df)} rows with empty Shipment Nbr")
+            empty_removed = initial_count - len(df)
+            self.print_with_timestamp(f"Removed {empty_removed} rows with empty Shipment Nbr")
             
             # Validate DO # format (exactly 10 digits)
             before_do_filter = len(df)
             # Cast to Series to access .apply method
             do_series = cast(pd.Series, df['DO #'])
             df = df[do_series.apply(self.validate_do_number)]
-            print(f"Removed {before_do_filter - len(df)} rows with invalid DO # format")
+            invalid_do_removed = before_do_filter - len(df)
+            self.print_with_timestamp(f"Removed {invalid_do_removed} rows with invalid DO # format")
             
             # Assign to instance variable - cast to DataFrame to satisfy type checker
             self.df = cast(pd.DataFrame, df)
+            
+            # Calculate processing time
+            duration = (datetime.now() - start_time).total_seconds()
+            
             if self.df is not None:
-                print(f"Final dataset: {len(self.df)} rows ready for processing")
+                final_count = len(self.df)
+                self.print_with_timestamp(f"Final dataset: {final_count} rows ready for processing")
+                
+                # Log successful data load
+                self.log_event(
+                    "DATA_LOAD", 
+                    records_found=final_count,
+                    status="SUCCESS",
+                    error_message=f"Removed {empty_removed} empty, {invalid_do_removed} invalid DO#",
+                    duration=duration
+                )
             return True
             
         except Exception as e:
-            print(f"ERROR loading Excel file: {e}")
+            duration = (datetime.now() - start_time).total_seconds()
+            error_msg = f"ERROR loading Excel file: {e}"
+            self.print_with_timestamp(error_msg)
+            self.log_event("DATA_LOAD", status="FAILED", error_message=str(e), duration=duration)
             return False
     
     def format_date(self, date_value: Any) -> str:
@@ -403,13 +496,13 @@ class PlacardGenerator:
         """Load template and return a copy"""
         try:
             if not os.path.exists(template_path):
-                print(f"ERROR: Template file not found: {template_path}")
+                self.print_with_timestamp(f"ERROR: Template file not found: {template_path}")
                 return None
             
             doc = Document(template_path)  # type: ignore
             return doc
         except Exception as e:
-            print(f"ERROR loading template: {e}")
+            self.print_with_timestamp(f"ERROR loading template: {e}")
             return None
     
     def copy_formatted_content(self, source_doc: Any, target_doc: Any) -> None:
@@ -481,7 +574,7 @@ class PlacardGenerator:
                                     new_run.font.color.rgb = run.font.color.rgb
                                     
         except Exception as e:
-            print(f"Warning: Error copying formatted content: {e}")
+            self.print_with_timestamp(f"Warning: Error copying formatted content: {e}")
             # Fallback to simple text copy
             for paragraph in source_doc.paragraphs:
                 target_doc.add_paragraph(paragraph.text)
@@ -493,16 +586,23 @@ class PlacardGenerator:
     
     def process_shipment(self, shipment_num: str) -> bool:
         """Process a single shipment number and generate placard"""
-        print(f"\nProcessing shipment: {shipment_num}")
+        self.print_with_timestamp(f"\nProcessing shipment: {shipment_num}")
+        start_time = datetime.now()
         
         # Validate shipment number
         if not self.validate_shipment_number(shipment_num):
-            print(f"ERROR: Invalid shipment number format: {shipment_num} (must be exactly 10 digits)")
+            error_msg = f"Invalid shipment number format: {shipment_num} (must be exactly 10 digits)"
+            self.print_with_timestamp(f"ERROR: {error_msg}")
+            self.log_event("SHIPMENT_PROCESS", shipment_number=shipment_num, 
+                          status="FAILED", error_message=error_msg)
             return False
         
         # Ensure df is not None
         if self.df is None:
-            print("ERROR: No data loaded")
+            error_msg = "No data loaded"
+            self.print_with_timestamp(f"ERROR: {error_msg}")
+            self.log_event("SHIPMENT_PROCESS", shipment_number=shipment_num, 
+                          status="FAILED", error_message=error_msg)
             return False
         
         # Find shipment data - handle float values like 9010157586.0
@@ -510,10 +610,14 @@ class PlacardGenerator:
         df_shipment_clean = self.df['Shipment Nbr'].astype(float).astype(int).astype(str)
         shipment_data = self.df[df_shipment_clean == shipment_num]
         if shipment_data.empty:
-            print(f"ERROR: No data found for shipment number: {shipment_num}")
+            error_msg = f"No data found for shipment number: {shipment_num}"
+            self.print_with_timestamp(f"ERROR: {error_msg}")
+            self.log_event("SHIPMENT_PROCESS", shipment_number=shipment_num,
+                          status="FAILED", error_message=error_msg)
             return False
         
-        print(f"Found {len(shipment_data)} records for shipment {shipment_num}")
+        records_found = len(shipment_data)
+        self.print_with_timestamp(f"Found {records_found} records for shipment {shipment_num}")
         
         # Get template path
         template_path = os.path.join(self.template_folder, "placard_template.docx")
@@ -521,6 +625,9 @@ class PlacardGenerator:
         # Create main document by copying template
         main_doc = self.copy_template_content(template_path)
         if not main_doc:
+            error_msg = "Failed to load template"
+            self.log_event("SHIPMENT_PROCESS", shipment_number=shipment_num,
+                          records_found=records_found, status="FAILED", error_message=error_msg)
             return False
         
         # Get shipment-level data (same for all pages)
@@ -538,13 +645,13 @@ class PlacardGenerator:
         do_groups = shipment_data.groupby('DO #')
         total_dos = len(do_groups)
         
-        print(f"Processing {total_dos} DO #s for shipment {shipment_num}")
+        self.print_with_timestamp(f"Processing {total_dos} DO #s for shipment {shipment_num}")
         
         # Process each DO # and create pages
         main_doc = None
         
         for do_index, (do_num, do_group) in enumerate(do_groups, 1):
-            print(f"  Processing DO # {do_num} ({do_index}/{total_dos})")
+            self.print_with_timestamp(f"  Processing DO # {do_num} ({do_index}/{total_dos})")
             
             # Get page-level data
             first_do_row = do_group.iloc[0]
@@ -602,14 +709,118 @@ class PlacardGenerator:
         try:
             if main_doc is not None:
                 main_doc.save(output_path)
-                print(f"SUCCESS: Created placard document: {output_path}")
+                duration = (datetime.now() - start_time).total_seconds()
+                self.print_with_timestamp(f"SUCCESS: Created placard document: {output_path}")
+                
+                # Log successful processing
+                self.log_event("SHIPMENT_PROCESS", shipment_number=shipment_num,
+                              do_count=total_dos, records_found=records_found,
+                              status="SUCCESS", output_file=output_filename, duration=duration)
                 return True
             else:
-                print("ERROR: No document was created")
+                error_msg = "No document was created"
+                self.print_with_timestamp(f"ERROR: {error_msg}")
+                duration = (datetime.now() - start_time).total_seconds()
+                self.log_event("SHIPMENT_PROCESS", shipment_number=shipment_num,
+                              do_count=total_dos, records_found=records_found,
+                              status="FAILED", error_message=error_msg, duration=duration)
                 return False
         except Exception as e:
-            print(f"ERROR saving document: {e}")
+            error_msg = f"ERROR saving document: {e}"
+            self.print_with_timestamp(error_msg)
+            duration = (datetime.now() - start_time).total_seconds()
+            self.log_event("SHIPMENT_PROCESS", shipment_number=shipment_num,
+                          do_count=total_dos, records_found=records_found,
+                          status="FAILED", error_message=str(e), duration=duration)
             return False
+    
+    def get_all_unique_shipments(self) -> List[str]:
+        """Get all unique shipment numbers from the dataset"""
+        if self.df is None:
+            return []
+        
+        # Get unique shipment numbers and convert to clean strings
+        df_shipment_clean = self.df['Shipment Nbr'].astype(float).astype(int).astype(str)
+        unique_shipments = df_shipment_clean.unique().tolist()
+        
+        # Filter valid shipment numbers
+        valid_shipments = [s for s in unique_shipments if self.validate_shipment_number(s)]
+        return sorted(valid_shipments)
+    
+    def process_all_shipments(self) -> Tuple[int, int]:
+        """Process all shipments in the dataset"""
+        self.print_with_timestamp("\n=== Processing ALL Shipments ===")
+        start_time = datetime.now()
+        
+        all_shipments = self.get_all_unique_shipments()
+        if not all_shipments:
+            self.print_with_timestamp("No valid shipments found in the dataset.")
+            self.log_event("BULK_PROCESS", status="FAILED", 
+                          error_message="No valid shipments found", processing_mode="BULK")
+            return 0, 0
+        
+        self.print_with_timestamp(f"Found {len(all_shipments)} unique shipments to process...")
+        
+        # Log bulk processing start
+        self.log_event("BULK_PROCESS_START", records_found=len(all_shipments), 
+                      processing_mode="BULK", status="STARTED")
+        
+        # Ask for confirmation
+        confirm = input(f"This will generate {len(all_shipments)} placard documents. Continue? (y/n): ").strip().lower()
+        if confirm not in ['y', 'yes']:
+            self.print_with_timestamp("Bulk processing cancelled.")
+            self.log_event("BULK_PROCESS", status="CANCELLED", 
+                          error_message="User cancelled bulk processing", processing_mode="BULK")
+            return 0, 0
+        
+        successful_count = 0
+        failed_count = 0
+        
+        # Process each shipment
+        for i, shipment_num in enumerate(all_shipments, 1):
+            self.print_with_timestamp(f"\n[{i}/{len(all_shipments)}] Processing shipment: {shipment_num}")
+            
+            if self.process_shipment(shipment_num):
+                successful_count += 1
+            else:
+                failed_count += 1
+                
+            # Show progress every 10 shipments or at the end
+            if i % 10 == 0 or i == len(all_shipments):
+                self.print_with_timestamp(f"Progress: {i}/{len(all_shipments)} processed ({successful_count} successful, {failed_count} failed)")
+        
+        # Log bulk processing completion
+        duration = (datetime.now() - start_time).total_seconds()
+        self.log_event("BULK_PROCESS_COMPLETE", 
+                      records_found=len(all_shipments),
+                      status=f"COMPLETED: {successful_count} success, {failed_count} failed",
+                      processing_mode="BULK", duration=duration,
+                      error_message=f"Processed {len(all_shipments)} shipments")
+        
+        return successful_count, failed_count
+    
+    def get_user_choice(self) -> str:
+        """Get user choice for processing mode"""
+        while True:
+            try:
+                self.print_with_timestamp("\nChoose an option:")
+                self.print_with_timestamp("1. Enter specific shipment numbers")
+                self.print_with_timestamp("2. Generate placards for ALL shipments in dataset")
+                self.print_with_timestamp("3. Exit")
+                
+                choice = input("Enter your choice (1-3): ").strip()
+                
+                if choice in ['1', '2', '3']:
+                    return choice
+                else:
+                    self.print_with_timestamp("Please enter 1, 2, or 3.")
+                    
+            except KeyboardInterrupt:
+                self.print_with_timestamp("\nOperation cancelled by user.")
+                sys.exit(0)
+            except Exception as e:
+                self.print_with_timestamp(f"Error reading input: {e}")
+                continue
     
     def get_user_input(self) -> List[str]:
         """Get shipment numbers from user input"""
@@ -617,7 +828,7 @@ class PlacardGenerator:
             try:
                 user_input = input("\nEnter one or more Shipment Numbers (comma-separated): ").strip()
                 if not user_input:
-                    print("Please enter at least one shipment number.")
+                    self.print_with_timestamp("Please enter at least one shipment number.")
                     continue
                 
                 # Split by comma and clean up
@@ -625,78 +836,144 @@ class PlacardGenerator:
                 shipment_numbers = [num for num in shipment_numbers if num]  # Remove empty strings
                 
                 if not shipment_numbers:
-                    print("Please enter valid shipment numbers.")
+                    self.print_with_timestamp("Please enter valid shipment numbers.")
                     continue
                 
                 return shipment_numbers
                 
             except KeyboardInterrupt:
-                print("\nOperation cancelled by user.")
+                self.print_with_timestamp("\nOperation cancelled by user.")
                 sys.exit(0)
             except Exception as e:
-                print(f"Error reading input: {e}")
+                self.print_with_timestamp(f"Error reading input: {e}")
                 continue
     
     def run(self) -> None:
         """Main execution method"""
-        print("=== Shipping Placard Generator ===")
-        print("Loading data and preparing system...")
+        self.print_with_timestamp("=== Shipping Placard Generator ===")
+        self.print_with_timestamp("Loading data and preparing system...")
+        session_start = datetime.now()
         
         # Setup directories
         if not self.setup_directories():
             return
         
+        # Initialize logging
+        self.initialize_log()
+        
+        # Log session start
+        self.log_event("SESSION_START", status="STARTED")
+        
         # Load and prepare data (one-time operation)
         if not self.load_and_prepare_data():
-            print("Failed to load data. Please check the Data folder and file format.")
+            self.print_with_timestamp("Failed to load data. Please check the Data folder and file format.")
+            self.log_event("SESSION_END", status="FAILED", 
+                          error_message="Failed to load data")
             return
         
         # Check template exists
         template_path = os.path.join(self.template_folder, "placard_template.docx")
         if not os.path.exists(template_path):
-            print(f"ERROR: Template file not found: {template_path}")
-            print("Please place the template file 'placard_template.docx' in the Template folder.")
+            error_msg = f"Template file not found: {template_path}"
+            self.print_with_timestamp(f"ERROR: {error_msg}")
+            self.print_with_timestamp("Please place the template file 'placard_template.docx' in the Template folder.")
+            self.log_event("SESSION_END", status="FAILED", error_message=error_msg)
             return
         
-        print("\nData loaded successfully! Ready to generate placards.")
+        self.print_with_timestamp("\nData loaded successfully! Ready to generate placards.")
+        
+        # Show dataset summary
+        if self.df is not None:
+            all_shipments = self.get_all_unique_shipments()
+            self.print_with_timestamp(f"Dataset contains {len(all_shipments)} unique valid shipments.")
         
         # Process user requests
-        successful_count = 0
-        failed_count = 0
+        total_successful = 0
+        total_failed = 0
         
         while True:
             try:
-                # Get user input
-                shipment_numbers = self.get_user_input()
+                # Get user choice
+                choice = self.get_user_choice()
                 
-                # Process each shipment
-                for shipment_num in shipment_numbers:
-                    if self.process_shipment(shipment_num):
-                        successful_count += 1
-                    else:
-                        failed_count += 1
-                
-                # Print summary
-                print(f"\n=== Processing Summary ===")
-                print(f"Documents created: {successful_count}")
-                print(f"Failed inputs: {failed_count}")
-                
-                # Ask if user wants to continue
-                continue_choice = input("\nProcess more shipments? (y/n): ").strip().lower()
-                if continue_choice not in ['y', 'yes']:
+                if choice == '1':
+                    # Manual shipment entry
+                    self.log_event("USER_CHOICE", processing_mode="MANUAL", status="SELECTED")
+                    shipment_numbers = self.get_user_input()
+                    
+                    # Process each shipment
+                    successful_count = 0
+                    failed_count = 0
+                    
+                    for shipment_num in shipment_numbers:
+                        if self.process_shipment(shipment_num):
+                            successful_count += 1
+                        else:
+                            failed_count += 1
+                    
+                    total_successful += successful_count
+                    total_failed += failed_count
+                    
+                    # Print summary
+                    self.print_with_timestamp(f"\n=== Processing Summary ===")
+                    self.print_with_timestamp(f"Documents created: {successful_count}")
+                    self.print_with_timestamp(f"Failed inputs: {failed_count}")
+                    
+                    # Log manual processing summary
+                    self.log_event("MANUAL_PROCESS_SUMMARY", 
+                                  records_found=len(shipment_numbers),
+                                  status=f"COMPLETED: {successful_count} success, {failed_count} failed",
+                                  processing_mode="MANUAL")
+                    
+                elif choice == '2':
+                    # Process all shipments
+                    self.log_event("USER_CHOICE", processing_mode="BULK", status="SELECTED")
+                    successful_count, failed_count = self.process_all_shipments()
+                    total_successful += successful_count
+                    total_failed += failed_count
+                    
+                    # Print summary
+                    self.print_with_timestamp(f"\n=== Bulk Processing Summary ===")
+                    self.print_with_timestamp(f"Documents created: {successful_count}")
+                    self.print_with_timestamp(f"Failed shipments: {failed_count}")
+                    
+                elif choice == '3':
+                    # Exit
+                    self.print_with_timestamp("Exiting...")
                     break
+                
+                # Ask if user wants to continue (except after bulk processing or exit)
+                if choice != '2':
+                    continue_choice = input("\nReturn to main menu? (y/n): ").strip().lower()
+                    if continue_choice not in ['y', 'yes']:
+                        break
+                else:
+                    # After bulk processing, ask if they want to continue
+                    continue_choice = input("\nReturn to main menu? (y/n): ").strip().lower()
+                    if continue_choice not in ['y', 'yes']:
+                        break
                     
             except KeyboardInterrupt:
-                print("\n\nOperation cancelled by user.")
+                self.print_with_timestamp("\n\nOperation cancelled by user.")
+                self.log_event("SESSION_END", status="INTERRUPTED", 
+                              error_message="User interrupted session")
                 break
             except Exception as e:
-                print(f"Unexpected error: {e}")
+                self.print_with_timestamp(f"Unexpected error: {e}")
+                self.log_event("SESSION_END", status="ERROR", error_message=str(e))
                 break
         
-        print(f"\n=== Final Summary ===")
-        print(f"Total documents created: {successful_count}")
-        print(f"Total failed inputs: {failed_count}")
-        print("Thank you for using the Shipping Placard Generator!")
+        # Log session end
+        session_duration = (datetime.now() - session_start).total_seconds()
+        self.print_with_timestamp(f"\n=== Final Summary ===")
+        self.print_with_timestamp(f"Total documents created: {total_successful}")
+        self.print_with_timestamp(f"Total failed inputs: {total_failed}")
+        self.print_with_timestamp("Thank you for using the Shipping Placard Generator!")
+        
+        self.log_event("SESSION_END", 
+                      status="COMPLETED",
+                      error_message=f"Total: {total_successful} success, {total_failed} failed",
+                      duration=session_duration)
 
 
 def main() -> None:

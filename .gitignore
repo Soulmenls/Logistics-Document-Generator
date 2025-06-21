@@ -5,6 +5,10 @@ Data/*.xls
 # Generated Placards - DO NOT COMMIT
 Placards/*.docx
 
+# Log Files - DO NOT COMMIT
+Logs/*.csv
+Logs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

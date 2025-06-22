@@ -15,8 +15,12 @@ import sys
 import threading
 import time
 import traceback
+import logging
+import weakref
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any, Set, cast
+from collections import deque
+import gc
 
 import dearpygui.dearpygui as dpg
 import pandas as pd
@@ -24,18 +28,27 @@ import pandas as pd
 # Import the existing placard generator functionality
 try:
     from placard_generator import PlacardGenerator
+    from security_utils import (
+        InputValidator, PathSanitizer, SecurityError, 
+        RateLimiter, SecurityConfig, security_logger
+    )
 except ImportError as e:
-    print(f"CRITICAL ERROR: Could not import placard_generator module: {e}")
-    print("Please ensure placard_generator.py is in the same directory.")
+    print(f"CRITICAL ERROR: Could not import required modules: {e}")
+    print("Please ensure placard_generator.py and security_utils.py are in the same directory.")
     sys.exit(1)
+
+# Configure GUI-specific logging
+gui_logger = logging.getLogger('gui_app')
+gui_logger.setLevel(logging.INFO)
 
 
 class PlacardGeneratorGUI:
     """Professional GUI interface for the Logistics Document Generator with comprehensive error handling"""
     
     def __init__(self):
-        """Initialize the GUI application with error handling"""
+        """Initialize the GUI application with comprehensive security and memory management"""
         try:
+            # Core application state
             self.generator = PlacardGenerator()
             self.shipment_data: List[Dict[str, Any]] = []
             self.filtered_data: List[Dict[str, Any]] = []
@@ -44,6 +57,18 @@ class PlacardGeneratorGUI:
             self.data_loaded = False
             self.load_error = ""
             self.search_text = ""
+            
+            # Thread safety and security
+            self._processing_lock = threading.RLock()
+            self._shutdown_event = threading.Event()
+            self.rate_limiter = RateLimiter(SecurityConfig.MAX_OPERATIONS_PER_MINUTE)
+            
+            # Memory management
+            self._memory_cleanup_interval = 30  # seconds
+            self._last_cleanup = time.time()
+            self._weak_references: Set[weakref.ref] = set()
+            
+            # Column filters with size limits
             self.column_filters = {
                 'shipment_nbr': '',
                 'do_numbers': '',
@@ -58,7 +83,7 @@ class PlacardGeneratorGUI:
             self.dropdown_options: Dict[str, List[str]] = {}
             self.updating_master_checkbox = False
             
-            # Multi-select filter selections
+            # Multi-select filter selections with memory management
             self.multi_select_filters = {
                 'shipment_nbr': set(),
                 'do_numbers': set(),
@@ -108,9 +133,13 @@ class PlacardGeneratorGUI:
                 'surface': [50, 54, 62],       # Solid surface color
             }
             
-            # Console log for debugging and status messages
-            self.console_logs = []
-            self.max_console_lines = 100  # Limit console history
+            # Console log with memory management - use deque for O(1) operations
+            self.console_logs = deque(maxlen=50)  # Limit to 50 messages to prevent memory leaks
+            self.max_console_lines = 50  # Reduced from 100 for better memory management
+            
+            # Performance monitoring
+            self._operation_times = deque(maxlen=100)
+            self._memory_usage = deque(maxlen=20)
             
             # Initialize Dear PyGui with error handling
             self._initialize_gui()
@@ -379,23 +408,84 @@ class PlacardGeneratorGUI:
         self.log_to_console(message, status_type)
     
     def log_to_console(self, message: str, log_type: str = "info"):
-        """Add a message to the console log"""
-        timestamp = datetime.now().strftime('%H:%M:%S')
-        log_entry = f"[{timestamp}] {message}"
-        
-        # Add to console logs
-        self.console_logs.append({
-            'message': log_entry,
-            'type': log_type,
-            'timestamp': timestamp
-        })
-        
-        # Limit console history
-        if len(self.console_logs) > self.max_console_lines:
-            self.console_logs = self.console_logs[-self.max_console_lines:]
-        
-        # Update console display if it exists
-        self.update_console_display()
+        """Add a message to the console log with security validation and memory management"""
+        try:
+            # Rate limiting for console logs
+            if not self.rate_limiter.allow_operation():
+                return
+            
+            # Validate and sanitize input
+            if not InputValidator.validate_text_field(message, max_length=1000):
+                message = "INVALID_LOG_MESSAGE"
+                log_type = "error"
+                security_logger.warning("Invalid log message filtered")
+            
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            log_entry = f"[{timestamp}] {message}"
+            
+            # Add to console logs - deque automatically handles size limit
+            self.console_logs.append({
+                'message': log_entry,
+                'type': log_type,
+                'timestamp': timestamp
+            })
+            
+            # Update console display if it exists
+            self.update_console_display()
+            
+            # Log to appropriate logger based on type
+            if log_type == "error":
+                gui_logger.error(message)
+            elif log_type == "warning":
+                gui_logger.warning(message)
+            elif log_type == "success":
+                gui_logger.info(f"SUCCESS: {message}")
+            else:
+                gui_logger.info(message)
+            
+            # Periodic memory cleanup
+            current_time = time.time()
+            if current_time - self._last_cleanup > self._memory_cleanup_interval:
+                self._cleanup_memory()
+                self._last_cleanup = current_time
+                
+        except Exception as e:
+            # Fallback logging to prevent crash
+            print(f"Console logging error: {e}")
+            gui_logger.error(f"Console logging failed: {e}")
+    
+    def _cleanup_memory(self):
+        """Perform periodic memory cleanup"""
+        try:
+            # Force garbage collection
+            gc.collect()
+            
+            # Clean up weak references
+            dead_refs = [ref for ref in self._weak_references if ref() is None]
+            for ref in dead_refs:
+                self._weak_references.discard(ref)
+            
+            # Limit data structures if they get too large
+            if len(self.shipment_data) > SecurityConfig.MAX_RECORDS_PER_BATCH:
+                gui_logger.warning("Large dataset detected, consider data cleanup")
+            
+            # Log memory usage if psutil is available
+            try:
+                import psutil
+                process = psutil.Process()
+                memory_mb = process.memory_info().rss / 1024 / 1024
+                self._memory_usage.append(memory_mb)
+                
+                if len(self._memory_usage) > 10:
+                    avg_memory = sum(self._memory_usage) / len(self._memory_usage)
+                    if memory_mb > avg_memory * 1.5:  # 50% increase
+                        gui_logger.warning(f"Memory usage spike detected: {memory_mb:.1f}MB")
+            except ImportError:
+                # psutil not available, skip memory monitoring
+                pass
+            
+        except Exception as e:
+            gui_logger.error(f"Memory cleanup failed: {e}")
     
     def update_console_display(self):
         """Update the console text display"""
@@ -415,15 +505,33 @@ class PlacardGeneratorGUI:
         self.log_to_console("Console cleared", "info")
     
     def load_data_callback(self, sender, app_data):
-        """Callback to load Excel data with comprehensive error handling"""
-        self.update_status("Loading data...", "info")
+        """Callback to load Excel data with comprehensive security and error handling"""
+        # Thread safety check
+        with self._processing_lock:
+            if self.is_processing:
+                self.update_status("Already processing, please wait...", "warning")
+                return
+            self.is_processing = True
         
-        # Disable load button during loading
-        self._safe_dpg_operation("disable_load_button", 
-                                 dpg.configure_item, "load_data_btn", enabled=False, label="Loading...")
-        
-        # Load data with comprehensive error handling
         try:
+            self.update_status("Loading data...", "info")
+            
+            # Rate limiting check
+            if not self.rate_limiter.allow_operation():
+                self.update_status("Rate limit exceeded. Please wait before retrying.", "warning")
+                return
+            
+            # Disable load button during loading
+            self._safe_dpg_operation("disable_load_button", 
+                                     dpg.configure_item, "load_data_btn", enabled=False, label="Loading...")
+            
+            # Clear previous data securely
+            self.shipment_data.clear()
+            self.filtered_data.clear()
+            self.selected_shipments.clear()
+            self.data_loaded = False
+            
+            # Load data with comprehensive error handling
             self.log_to_console("Starting data loading process...", "info")
             
             # Check if Data directory exists
@@ -440,11 +548,6 @@ class PlacardGeneratorGUI:
             
             if self.generator.load_and_prepare_data():
                 self.log_to_console("Excel data loaded successfully", "success")
-                
-                # Validate data integrity
-                if not self._validate_data_integrity():
-                    self.update_status("Data validation failed - check console for details", "error")
-                    return
                 # Get all shipments with their details
                 all_shipments = self.generator.get_all_unique_shipments()
                 self.log_to_console(f"Found {len(all_shipments)} unique shipments", "info")
@@ -494,6 +597,11 @@ class PlacardGeneratorGUI:
                 # Initialize filtered data
                 self.filtered_data = self.shipment_data.copy()
                 
+                # Validate data integrity now that shipment_data is populated
+                if not self._validate_data_integrity():
+                    self.update_status("Data validation failed - check console for details", "error")
+                    return
+                
                 # Mark data as loaded
                 self.data_loaded = True
                 
@@ -518,13 +626,21 @@ class PlacardGeneratorGUI:
                 self.update_status("Failed to load data. Check Data folder and file format.", "error")
                 self.log_to_console("Data loading failed - check Data folder", "error")
                 
+        except SecurityError as e:
+            self.update_status(f"Security error loading data: {str(e)}", "error")
+            self.log_to_console(f"Security violation during data loading: {str(e)}", "error")
+            security_logger.error(f"Data loading security error: {e}")
+            
         except Exception as e:
             self.update_status(f"Error loading data: {str(e)}", "error")
             self.log_to_console(f"Exception during data loading: {str(e)}", "error")
+            gui_logger.error(f"Data loading failed: {e}", exc_info=True)
             
         finally:
-            # Re-enable load button
+            # Re-enable load button and reset processing state
             dpg.configure_item("load_data_btn", enabled=True, label="Load Data")
+            with self._processing_lock:
+                self.is_processing = False
     
     def search_callback(self, sender, app_data):
         """Callback for search functionality"""
@@ -1286,13 +1402,37 @@ class PlacardGeneratorGUI:
         ).start()
     
     def process_shipments_thread(self, shipments: List[str]):
-        """Process shipments in a separate thread with comprehensive error handling"""
-        self.is_processing = True
-        self.log_to_console(f"Starting background processing thread for {len(shipments)} shipments", "info")
+        """Process shipments in a separate thread with comprehensive security and error handling"""
+        # Thread safety - use lock to prevent concurrent processing
+        with self._processing_lock:
+            if self.is_processing:
+                self.log_to_console("Processing already in progress, skipping request", "warning")
+                return
+            self.is_processing = True
         
         try:
+            self.log_to_console(f"Starting background processing thread for {len(shipments)} shipments", "info")
+            
+            # Security validation for shipment list
+            if len(shipments) > SecurityConfig.MAX_RECORDS_PER_BATCH:
+                raise SecurityError(f"Too many shipments requested: {len(shipments)} > {SecurityConfig.MAX_RECORDS_PER_BATCH}")
+            
+            # Validate each shipment number
+            validated_shipments = []
+            for shipment in shipments:
+                if InputValidator.validate_shipment_number(shipment):
+                    validated_shipments.append(shipment)
+                else:
+                    security_logger.warning(f"Invalid shipment number filtered: {shipment}")
+            
+            if not validated_shipments:
+                raise SecurityError("No valid shipment numbers provided")
+            
+            shipments = validated_shipments
+            self.log_to_console(f"Validated {len(shipments)} shipment numbers", "info")
+            
             # Validate prerequisites
-            if not self.generator.df is not None:
+            if self.generator.df is None:
                 raise RuntimeError("No data loaded - cannot process shipments")
             
             # Check output directory
@@ -1370,20 +1510,29 @@ class PlacardGeneratorGUI:
             processing_rate = len(shipments) / max(1, time.time() - start_time) if 'start_time' in locals() else 0
             self.log_to_console(f"Processing rate: {processing_rate:.2f} shipments/second", "info")
             
+        except SecurityError as e:
+            self.update_status(f"❌ Security error during processing: {str(e)}", "error")
+            self.log_to_console(f"SECURITY ERROR in processing thread: {str(e)}", "error")
+            security_logger.error(f"Processing security violation: {e}")
+            
         except Exception as e:
             self.update_status(f"❌ Critical error during processing: {str(e)}", "error")
             self.log_to_console(f"CRITICAL ERROR in processing thread: {str(e)}", "error")
             self.log_to_console(f"Stack trace: {traceback.format_exc()}", "error")
+            gui_logger.error(f"Processing thread failed: {e}", exc_info=True)
             
         finally:
             # Re-enable buttons and hide progress with safe operations
-            self.is_processing = False
             self._safe_dpg_operation("enable_generate_selected", 
                                      dpg.configure_item, "generate_selected_btn", enabled=True)
             self._safe_dpg_operation("enable_generate_all", 
                                      dpg.configure_item, "generate_all_btn", enabled=True)
             self._safe_dpg_operation("hide_progress_container", 
                                      dpg.configure_item, "progress_container", show=False)
+            
+            # Thread safety - reset processing state
+            with self._processing_lock:
+                self.is_processing = False
             
             self.log_to_console("Processing thread completed", "info")
     

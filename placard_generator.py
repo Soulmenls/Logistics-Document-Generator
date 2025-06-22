@@ -4,14 +4,22 @@ Logistics Document Generator
 
 This script generates multi-page shipping placards from Excel data using Word templates.
 Reads from Data folder, uses Template folder for templates, outputs to Placards folder.
+
+Security Features:
+- Input validation and sanitization
+- Path traversal protection
+- File size and type validation
+- Rate limiting and resource management
+- Comprehensive error handling and logging
 """
 
 import os
 import sys
-import glob
-import re
 import csv
-from datetime import datetime
+import re
+import logging
+import threading
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple, Any, cast
 
 import pandas as pd
@@ -20,9 +28,26 @@ from docx.shared import Inches
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
 
+# Import security utilities
+from security_utils import (
+    InputValidator, PathSanitizer, SecureFileHandler, SecurityConfig,
+    SecurityError, RateLimiter, security_logger
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('application.log'),
+        logging.StreamHandler()
+    ]
+)
+app_logger = logging.getLogger('placard_generator')
+
 
 class PlacardGenerator:
-    """High-performance logistics document generator"""
+    """High-performance logistics document generator with comprehensive security"""
     
     def __init__(self):
         self.df: Optional[pd.DataFrame] = None
@@ -35,6 +60,21 @@ class PlacardGenerator:
         self.output_folder = "Placards"
         self.log_folder = "Logs"
         self.log_file = None
+        
+        # Security components
+        self.data_handler = SecureFileHandler(self.data_folder)
+        self.template_handler = SecureFileHandler(self.template_folder)
+        self.output_handler = SecureFileHandler(self.output_folder)
+        self.log_handler = SecureFileHandler(self.log_folder)
+        self.rate_limiter = RateLimiter(SecurityConfig.MAX_OPERATIONS_PER_MINUTE)
+        
+        # Thread safety
+        self._processing_lock = threading.Lock()
+        self._is_processing = False
+        
+        # Performance monitoring
+        self._start_time = None
+        self._processed_count = 0
         
     def get_timestamp(self) -> str:
         """Get a readable timestamp for console output"""
@@ -117,81 +157,206 @@ class PlacardGenerator:
     
     def find_excel_file(self) -> Optional[str]:
         """Find Excel file starting with 'WM-SPN-CUS105 Open Order Report' in Data folder"""
-        pattern = os.path.join(self.data_folder, "WM-SPN-CUS105 Open Order Report*.xlsx")
-        files = glob.glob(pattern)
-        
-        if not files:
-            # Also check for .xls files
-            pattern = os.path.join(self.data_folder, "WM-SPN-CUS105 Open Order Report*.xls")
-            files = glob.glob(pattern)
-        
-        if not files:
-            self.print_with_timestamp(f"ERROR: No Excel file found in '{self.data_folder}' folder starting with 'WM-SPN-CUS105 Open Order Report'")
+        try:
+            # Securely list files in data directory
+            xlsx_files = self.data_handler.safe_list_files("WM-SPN-CUS105 Open Order Report*.xlsx")
+            xls_files = self.data_handler.safe_list_files("WM-SPN-CUS105 Open Order Report*.xls")
+            
+            all_files = xlsx_files + xls_files
+            
+            if not all_files:
+                error_msg = f"ERROR: No Excel file found in '{self.data_folder}' folder starting with 'WM-SPN-CUS105 Open Order Report'"
+                self.print_with_timestamp(error_msg)
+                security_logger.warning(f"Excel file not found in {self.data_folder}")
+                return None
+            
+            # Additional security validation
+            valid_files = []
+            for file_path in all_files:
+                # Validate file extension
+                if not SecurityConfig.validate_file_extension(file_path, SecurityConfig.ALLOWED_EXCEL_EXTENSIONS):
+                    security_logger.warning(f"Invalid file extension: {file_path}")
+                    continue
+                    
+                # Validate file size
+                if not SecurityConfig.validate_file_size(file_path, SecurityConfig.MAX_EXCEL_FILE_SIZE):
+                    security_logger.warning(f"File too large: {file_path}")
+                    continue
+                    
+                # Calculate and log file hash for integrity
+                file_hash = self.data_handler.calculate_file_hash(file_path)
+                if file_hash:
+                    app_logger.info(f"Processing file: {file_path} (SHA256: {file_hash[:16]}...)")
+                    
+                valid_files.append(file_path)
+            
+            if not valid_files:
+                self.print_with_timestamp("ERROR: No valid Excel files found after security validation")
+                return None
+            
+            if len(valid_files) > 1:
+                self.print_with_timestamp(f"Multiple Excel files found. Using: {valid_files[0]}")
+                security_logger.info(f"Multiple files available, selected: {valid_files[0]}")
+            
+            return valid_files[0]
+            
+        except SecurityError as e:
+            security_logger.error(f"Security error in file discovery: {e}")
+            self.print_with_timestamp(f"Security error: {e}")
             return None
-        
-        if len(files) > 1:
-            self.print_with_timestamp(f"Multiple Excel files found. Using: {files[0]}")
-        
-        return files[0]
+        except Exception as e:
+            app_logger.error(f"Unexpected error in file discovery: {e}")
+            self.print_with_timestamp(f"Unexpected error: {e}")
+            return None
     
     def validate_do_number(self, do_num: Any) -> bool:
-        """Validate DO # format: at least 8 digits (adjusted for actual data)"""
-        if pd.isna(do_num):
+        """Validate DO # format using secure validation"""
+        try:
+            return InputValidator.validate_do_number(do_num)
+        except Exception as e:
+            security_logger.error(f"DO number validation error: {e}")
             return False
-        do_str = str(do_num).strip()
-        return bool(re.match(r'^\d{8,}$', do_str))
     
     def validate_shipment_number(self, shipment_num: Any) -> bool:
-        """Validate shipment number: exactly 10 characters, all numbers"""
-        if not shipment_num:
-            return False
-        shipment_str = str(shipment_num).strip()
-        return len(shipment_str) == 10 and shipment_str.isdigit()
-    
-    def load_and_prepare_data(self) -> bool:
-        """Load Excel file and prepare data with validation"""
-        self.print_with_timestamp("Loading and preparing data...")
-        start_time = datetime.now()
-        
-        # Find Excel file
-        excel_file = self.find_excel_file()
-        if not excel_file:
-            self.log_event("DATA_LOAD", status="FAILED", error_message="Excel file not found")
-            return False
-        
+        """Validate shipment number using secure validation"""
         try:
-            # Load Excel file
-            self.print_with_timestamp(f"Loading file: {excel_file}")
-            df = pd.read_excel(excel_file)
-            self.print_with_timestamp(f"Loaded {len(df)} rows from Excel file")
+            return InputValidator.validate_shipment_number(shipment_num)
+        except Exception as e:
+            security_logger.error(f"Shipment number validation error: {e}")
+            return False
+    
+    def validate_data_integrity(self, df: pd.DataFrame) -> bool:
+        """Comprehensive data validation with security checks"""
+        try:
+            validation_errors = []
             
-            # Check for required columns
+            # Check required columns
             missing_columns = [col for col in self.required_columns if col not in df.columns]
             if missing_columns:
-                error_msg = f"Missing required columns: {missing_columns}"
+                validation_errors.append(f"Missing required columns: {missing_columns}")
+            
+            # Validate data types and content
+            for index, row in df.iterrows():
+                # Validate shipment number
+                if not self.validate_shipment_number(row.get('Shipment Nbr')):
+                    validation_errors.append(f"Invalid shipment number at row {index}")
+                
+                # Validate DO number
+                if not self.validate_do_number(row.get('DO #')):
+                    validation_errors.append(f"Invalid DO number at row {index}")
+                
+                # Validate text fields
+                text_fields = ['Ship To', 'PO', 'Label Type', 'Order Type', 'Pmt Term']
+                for field in text_fields:
+                    if not InputValidator.validate_text_field(row.get(field), max_length=500):
+                        validation_errors.append(f"Invalid {field} at row {index}")
+                
+                # Validate numeric fields
+                if not InputValidator.validate_numeric_field(row.get('Original Qty')):
+                    validation_errors.append(f"Invalid quantity at row {index}")
+            
+            # Log validation results
+            if validation_errors:
+                for error in validation_errors[:10]:  # Log first 10 errors
+                    security_logger.warning(f"Data validation error: {error}")
+                if len(validation_errors) > 10:
+                    security_logger.warning(f"... and {len(validation_errors) - 10} more validation errors")
+                return False
+            
+            app_logger.info(f"Data validation passed for {len(df)} records")
+            return True
+            
+        except Exception as e:
+            security_logger.error(f"Data validation failed with exception: {e}")
+            return False
+    
+    def load_and_prepare_data(self) -> bool:
+        """Load Excel file and prepare data with comprehensive security validation"""
+        with self._processing_lock:
+            if self._is_processing:
+                self.print_with_timestamp("ERROR: Another data loading operation is in progress")
+                return False
+            self._is_processing = True
+        
+        try:
+            self.print_with_timestamp("Loading and preparing data...")
+            start_time = datetime.now()
+            self._start_time = start_time
+            
+            # Rate limiting check
+            if not self.rate_limiter.allow_operation():
+                error_msg = "Rate limit exceeded. Please wait before retrying."
                 self.print_with_timestamp(f"ERROR: {error_msg}")
-                self.print_with_timestamp(f"Available columns: {list(df.columns)}")
+                security_logger.warning("Data loading rate limit exceeded")
+                self.log_event("DATA_LOAD", status="FAILED", error_message=error_msg)
+                return False
+            
+            # Find Excel file with security validation
+            excel_file = self.find_excel_file()
+            if not excel_file:
+                self.log_event("DATA_LOAD", status="FAILED", error_message="Excel file not found")
+                return False
+            
+            # Additional file validation before processing
+            if not self.data_handler.safe_file_exists(excel_file):
+                error_msg = "Excel file validation failed"
+                self.print_with_timestamp(f"ERROR: {error_msg}")
+                security_logger.error(f"File validation failed: {excel_file}")
+                self.log_event("DATA_LOAD", status="FAILED", error_message=error_msg)
+                return False
+                
+            # Load Excel file with error handling
+            self.print_with_timestamp(f"Loading file: {excel_file}")
+            try:
+                df = pd.read_excel(excel_file, engine='openpyxl')
+            except Exception as read_error:
+                # Try with xlrd engine for .xls files
+                try:
+                    df = pd.read_excel(excel_file, engine='xlrd')
+                except Exception:
+                    error_msg = f"Failed to read Excel file with both engines: {read_error}"
+                    self.print_with_timestamp(f"ERROR: {error_msg}")
+                    security_logger.error(f"Excel read error: {read_error}")
+                    self.log_event("DATA_LOAD", status="FAILED", error_message=str(read_error))
+                    return False
+            
+            initial_count = len(df)
+            self.print_with_timestamp(f"Loaded {initial_count} rows from Excel file")
+            
+            # Check for reasonable data size
+            if initial_count > SecurityConfig.MAX_RECORDS_PER_BATCH:
+                error_msg = f"Dataset too large ({initial_count} records). Maximum allowed: {SecurityConfig.MAX_RECORDS_PER_BATCH}"
+                self.print_with_timestamp(f"ERROR: {error_msg}")
+                security_logger.warning(f"Large dataset detected: {initial_count} records")
+                self.log_event("DATA_LOAD", status="FAILED", error_message=error_msg)
+                return False
+            
+            # Comprehensive data validation
+            if not self.validate_data_integrity(df):
+                error_msg = "Data integrity validation failed"
+                self.print_with_timestamp(f"ERROR: {error_msg}")
                 self.log_event("DATA_LOAD", status="FAILED", error_message=error_msg)
                 return False
             
             # Filter out rows with empty Shipment Nbr
-            initial_count = len(df)
             df = df[df['Shipment Nbr'].notna()]
-            # Cast to Series to access .str accessor
             shipment_series = cast(pd.Series, df['Shipment Nbr'].astype(str))
             df = df[shipment_series.str.strip() != '']
             empty_removed = initial_count - len(df)
-            self.print_with_timestamp(f"Removed {empty_removed} rows with empty Shipment Nbr")
             
-            # Validate DO # format (exactly 10 digits)
+            # Validate DO # format using secure validation
             before_do_filter = len(df)
-            # Cast to Series to access .apply method
             do_series = cast(pd.Series, df['DO #'])
             df = df[do_series.apply(self.validate_do_number)]
             invalid_do_removed = before_do_filter - len(df)
-            self.print_with_timestamp(f"Removed {invalid_do_removed} rows with invalid DO # format")
             
-            # Assign to instance variable - cast to DataFrame to satisfy type checker
+            # Validate shipment numbers
+            before_shipment_filter = len(df)
+            shipment_series = cast(pd.Series, df['Shipment Nbr'])
+            df = df[shipment_series.apply(self.validate_shipment_number)]
+            invalid_shipment_removed = before_shipment_filter - len(df)
+            
+            # Assign to instance variable
             self.df = cast(pd.DataFrame, df)
             
             # Calculate processing time
@@ -199,24 +364,36 @@ class PlacardGenerator:
             
             if self.df is not None:
                 final_count = len(self.df)
-                self.print_with_timestamp(f"Final dataset: {final_count} rows ready for processing")
+                self.print_with_timestamp(f"Data preparation summary:")
+                self.print_with_timestamp(f"  - Initial records: {initial_count}")
+                self.print_with_timestamp(f"  - Removed empty: {empty_removed}")
+                self.print_with_timestamp(f"  - Removed invalid DO#: {invalid_do_removed}")
+                self.print_with_timestamp(f"  - Removed invalid shipments: {invalid_shipment_removed}")
+                self.print_with_timestamp(f"  - Final dataset: {final_count} rows ready for processing")
                 
                 # Log successful data load
                 self.log_event(
                     "DATA_LOAD", 
                     records_found=final_count,
                     status="SUCCESS",
-                    error_message=f"Removed {empty_removed} empty, {invalid_do_removed} invalid DO#",
+                    error_message=f"Processed {initial_count} -> {final_count} records",
                     duration=duration
                 )
+                
+                app_logger.info(f"Data loaded successfully: {final_count} valid records")
             return True
             
         except Exception as e:
-            duration = (datetime.now() - start_time).total_seconds()
+            duration = (datetime.now() - start_time).total_seconds() if start_time else 0
             error_msg = f"ERROR loading Excel file: {e}"
             self.print_with_timestamp(error_msg)
+            app_logger.error(f"Data loading failed: {e}", exc_info=True)
             self.log_event("DATA_LOAD", status="FAILED", error_message=str(e), duration=duration)
             return False
+            
+        finally:
+            with self._processing_lock:
+                self._is_processing = False
     
     def format_date(self, date_value: Any) -> str:
         """Format date as MM/DD/YYYY"""
@@ -583,6 +760,201 @@ class PlacardGenerator:
                 for i, row in enumerate(table.rows):
                     for j, cell in enumerate(row.cells):
                         new_table.cell(i, j).text = cell.text
+    
+    def _process_shipment_data(self, matching_records: pd.DataFrame) -> Optional[Dict[str, List[str]]]:
+        """Process shipment data with validation and security checks"""
+        try:
+            # Group by DO # for processing
+            do_groups = matching_records.groupby('DO #')
+            do_data = {
+                'do_numbers': [],
+                'pos': [],
+                'ship_to_info': [],
+                'start_ship_dates': [],
+                'vas_values': [],
+                'quantities': [],
+                'label_types': [],
+                'order_types': [],
+                'pmt_terms': []
+            }
+            
+            for do_num, group in do_groups:
+                # Validate DO number
+                if not self.validate_do_number(do_num):
+                    security_logger.warning(f"Invalid DO number in data: {do_num}")
+                    continue
+                    
+                do_data['do_numbers'].append(str(int(float(str(do_num)))))
+                
+                # Collect unique PO numbers for this DO with validation
+                po_list = group['PO'].dropna().unique().tolist()
+                validated_pos = []
+                for po in po_list:
+                    if InputValidator.validate_text_field(po, max_length=100):
+                        validated_pos.append(str(po).strip())
+                    else:
+                        security_logger.warning(f"Invalid PO number filtered: {po}")
+                
+                po_str = '\n'.join(validated_pos)
+                do_data['pos'].append(po_str)
+                
+                # Get and validate other info from first record of group
+                first_record = group.iloc[0]
+                
+                # Validate and sanitize text fields
+                ship_to = str(first_record['Ship To']) if pd.notna(first_record['Ship To']) else ''
+                if not InputValidator.validate_text_field(ship_to, max_length=500):
+                    security_logger.warning(f"Invalid ship_to field: {ship_to[:50]}...")
+                    ship_to = "INVALID_ADDRESS"
+                
+                label_type = str(first_record['Label Type']) if pd.notna(first_record['Label Type']) else ''
+                if not InputValidator.validate_text_field(label_type, max_length=100):
+                    security_logger.warning(f"Invalid label_type: {label_type}")
+                    label_type = "STANDARD"
+                
+                order_type = str(first_record['Order Type']) if pd.notna(first_record['Order Type']) else ''
+                if not InputValidator.validate_text_field(order_type, max_length=100):
+                    security_logger.warning(f"Invalid order_type: {order_type}")
+                    order_type = "STANDARD"
+                
+                pmt_term = str(first_record['Pmt Term']) if pd.notna(first_record['Pmt Term']) else ''
+                if not InputValidator.validate_text_field(pmt_term, max_length=100):
+                    security_logger.warning(f"Invalid pmt_term: {pmt_term}")
+                    pmt_term = "NET30"
+                
+                # Validate quantity
+                total_qty = group['Original Qty'].sum()
+                if not InputValidator.validate_numeric_field(total_qty, min_val=0, max_val=1e6):
+                    security_logger.warning(f"Invalid quantity: {total_qty}")
+                    total_qty = 0
+                
+                do_data['ship_to_info'].append(ship_to)
+                do_data['start_ship_dates'].append(self.format_date(first_record['Start Ship']))
+                do_data['vas_values'].append(self.get_vas_value(first_record['VAS']))
+                do_data['quantities'].append(f"{int(total_qty)} Units")
+                do_data['label_types'].append(label_type)
+                do_data['order_types'].append(order_type)
+                do_data['pmt_terms'].append(pmt_term)
+            
+            if not do_data['do_numbers']:
+                security_logger.error("No valid DO numbers found after validation")
+                return None
+                
+            return do_data
+            
+        except Exception as e:
+            app_logger.error(f"Error processing shipment data: {e}", exc_info=True)
+            return None
+    
+    def _create_secure_document(self, template_path: str, shipment_num: str, do_data: Dict[str, List[str]]) -> Optional[Any]:
+        """Create document with security validation"""
+        try:
+            # Load template securely
+            doc = self.copy_template_content(template_path)
+            if doc is None:
+                return None
+            
+            # Process each DO as a separate page
+            for i, (do_num, po_str, ship_to, start_ship, vas, qty, label_type, order_type, pmt_term) in enumerate(
+                zip(do_data['do_numbers'], do_data['pos'], do_data['ship_to_info'], 
+                    do_data['start_ship_dates'], do_data['vas_values'], do_data['quantities'], 
+                    do_data['label_types'], do_data['order_types'], do_data['pmt_terms'])):
+                
+                # Add page break for subsequent pages
+                if i > 0:
+                    doc.add_page_break()
+                    self.copy_formatted_content(doc, doc)
+                
+                # Prepare replacements with additional validation
+                replacements = {
+                    '{{Ship To}}': ship_to[:500],  # Limit length
+                    '{{Shipment Nbr}}': shipment_num,
+                    '{{PO}}': po_str[:1000],  # Limit length
+                    '{{DO #}}': do_num,
+                    '{{VAS}}': vas,
+                    '{{Original Qty}}': qty,
+                    '{{Label Type}}': label_type[:100],  # Limit length
+                    '{{Order Type}}': order_type[:100],  # Limit length
+                    '{{Pmt Term}}': pmt_term[:100],  # Limit length
+                    '{{Start Ship}}': start_ship
+                }
+                
+                # Replace placeholders
+                self.replace_placeholders_in_document(doc, replacements)
+            
+            return doc
+            
+        except Exception as e:
+            app_logger.error(f"Error creating document: {e}", exc_info=True)
+            return None
+    
+    def _save_document_securely(self, doc: Any, shipment_num: str, do_count: int, 
+                               record_count: int, start_time: datetime) -> bool:
+        """Save document with security validation"""
+        try:
+            # Generate secure filename
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            base_filename = f"Placard_{shipment_num}_{timestamp}"
+            sanitized_filename = PathSanitizer.sanitize_filename(base_filename) + ".docx"
+            
+            # Use secure path joining
+            output_path = PathSanitizer.safe_join_path(self.output_folder, sanitized_filename)
+            
+            # Ensure we can write to the output directory
+            if not os.access(self.output_folder, os.W_OK):
+                error_msg = f"No write permission to output directory: {self.output_folder}"
+                self.print_with_timestamp(f"ERROR: {error_msg}")
+                security_logger.error(error_msg)
+                return False
+            
+            # Save document with error handling
+            doc.save(output_path)
+            
+            # Verify file was created and has reasonable size
+            if not os.path.exists(output_path):
+                error_msg = "Document save failed - file not created"
+                self.print_with_timestamp(f"ERROR: {error_msg}")
+                return False
+            
+            file_size = os.path.getsize(output_path)
+            if file_size == 0:
+                error_msg = "Document save failed - empty file created"
+                self.print_with_timestamp(f"ERROR: {error_msg}")
+                os.remove(output_path)  # Clean up empty file
+                return False
+            
+            # Calculate and log file hash for integrity
+            file_hash = self.output_handler.calculate_file_hash(output_path)
+            
+            self.print_with_timestamp(f"✓ Successfully created: {sanitized_filename} ({file_size} bytes)")
+            
+            # Log successful processing
+            duration = (datetime.now() - start_time).total_seconds()
+            self.log_event("SHIPMENT_PROCESS", 
+                          shipment_number=shipment_num,
+                          do_count=do_count,
+                          records_found=record_count,
+                          status="SUCCESS",
+                          output_file=sanitized_filename,
+                          processing_mode="MANUAL",
+                          duration=duration)
+            
+            if file_hash:
+                app_logger.info(f"Document created: {sanitized_filename} (SHA256: {file_hash[:16]}...)")
+            
+            return True
+            
+        except SecurityError as e:
+            error_msg = f"Security error saving document: {e}"
+            self.print_with_timestamp(f"ERROR: {error_msg}")
+            security_logger.error(error_msg)
+            return False
+            
+        except Exception as e:
+            error_msg = f"Failed to save document: {e}"
+            self.print_with_timestamp(f"ERROR: {error_msg}")
+            app_logger.error(f"Document save error: {e}", exc_info=True)
+            return False
     
     def process_shipment(self, shipment_num: str) -> bool:
         """Process a single shipment number and generate placard"""

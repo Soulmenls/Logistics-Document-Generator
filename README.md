@@ -1,16 +1,27 @@
 # Logistics Document Generator
 
-A professional Python application that generates multi-page shipping placards from Excel data using Word templates. Features both a modern GUI interface and command-line operation, with enterprise-grade logging, bulk processing capabilities, and advanced document formatting preservation.
+A professional Python application that generates multi-page shipping placards from Excel data using Word templates. Features both a modern GUI interface and command-line operation, with **enterprise-grade security**, comprehensive logging, bulk processing capabilities, and advanced document formatting preservation.
 
 ## 🚀 Key Features
 
-### 🖥️ Modern GUI Interface (NEW!)
+### 🔒 Enterprise Security (NEW!)
+
+- **Comprehensive Input Validation**: Advanced validation for all data fields with malicious content detection
+- **Path Traversal Protection**: Secure file operations preventing directory traversal attacks
+- **File Integrity Verification**: SHA-256 hashing for file integrity and security audit trails
+- **Rate Limiting**: Configurable operation limits to prevent resource exhaustion attacks
+- **Memory Management**: Automatic memory cleanup and leak prevention with circular buffers
+- **Security Logging**: Detailed security event logging with audit trails and threat detection
+- **Dependency Security**: Pinned dependency versions and security-focused package management
+
+### 🖥️ Modern GUI Interface
 
 - **Interactive Data Table**: Visual shipment selection with real-time filtering and search
 - **Advanced Filtering**: Multi-column filters with search and sort capabilities
 - **Real-time Progress**: Visual progress tracking with detailed console logging
 - **Professional Styling**: Modern dark theme with consistent button styling and layout
-- **Error Handling**: Comprehensive error reporting and recovery mechanisms
+- **Memory-Safe Operations**: Comprehensive memory management preventing leaks and crashes
+- **Thread-Safe Processing**: Secure multi-threaded operations with proper synchronization
 - **Cross-platform**: Works on Windows, macOS, and Linux with automatic font detection
 
 ### 📊 Core Processing Features
@@ -18,15 +29,43 @@ A professional Python application that generates multi-page shipping placards fr
 - **Dual Processing Modes**: Manual entry for specific shipments or bulk processing for entire datasets
 - **Advanced Template Engine**: Preserves complex Word formatting across all generated documents
 - **Enterprise Logging**: Comprehensive CSV audit trail with session tracking and performance metrics
-- **Data Validation**: Robust input validation and error handling throughout processing pipeline
+- **Robust Data Validation**: Multi-layered validation system with security-focused input checking
 - **High Performance**: Memory-efficient processing with pandas vectorization for large datasets
+- **Secure File Handling**: Protected file operations with validation and integrity checks
+
+## 🛡️ Security Features
+
+### Input Validation & Sanitization
+
+- **Shipment Number Validation**: Flexible 8-12 digit validation supporting various formats
+- **DO Number Validation**: Secure validation for 6-15 digit delivery order numbers
+- **Text Field Sanitization**: XSS prevention and malicious content detection
+- **Numeric Field Validation**: Range checking and type validation for all numeric inputs
+- **File Path Sanitization**: Prevention of directory traversal and path manipulation attacks
+
+### Security Architecture
+
+- **Multi-layered Validation**: Input validation at multiple processing stages
+- **Secure File Operations**: All file operations use validated, sanitized paths
+- **Resource Protection**: Rate limiting and processing timeouts prevent resource exhaustion
+- **Memory Safety**: Automatic cleanup and leak prevention with monitoring
+- **Audit Logging**: Comprehensive security event logging for compliance and monitoring
+
+### Threat Protection
+
+- **Path Traversal Prevention**: Secure file handling prevents directory traversal attacks
+- **Input Sanitization**: Protection against script injection and malicious content
+- **Resource Exhaustion Protection**: Rate limiting and processing limits prevent DoS attacks
+- **File Integrity Verification**: SHA-256 hashing ensures file integrity and detects tampering
+- **Dependency Security**: Pinned versions and security-focused package management
 
 ## 📋 Technical Requirements
 
-- **Python**: 3.12.11+ (recommended for optimal performance)
-- **Dependencies**: pandas, python-docx, openpyxl, dearpygui
+- **Python**: 3.12.11+ (recommended for optimal performance and security)
+- **Dependencies**: pandas, python-docx, openpyxl, dearpygui (all versions pinned for security)
 - **Platform**: Cross-platform (Windows, macOS, Linux)
-- **Memory**: Sufficient for Excel dataset processing (typically <100MB)
+- **Memory**: Sufficient for Excel dataset processing (typically <100MB, with monitoring)
+- **Security**: File system permissions for secure file operations
 
 ## 🛠 Installation & Setup
 
@@ -65,11 +104,45 @@ Logistics Document Generator/
 │   └── placard_template.docx
 ├── Placards/                  # Generated documents (auto-created)
 ├── Logs/                      # CSV audit logs (auto-created)
-├── placard_generator_gui.py   # Modern GUI application (NEW!)
+├── placard_generator_gui.py   # Modern GUI application
 ├── placard_generator.py       # Command-line application
+├── security_utils.py          # Security utilities and validation (NEW!)
+├── config.py                  # Configuration and security settings (NEW!)
+├── SECURITY.md               # Security documentation (NEW!)
 ├── environment.yml            # Conda environment
-└── requirements.txt           # Python dependencies
+└── requirements.txt           # Python dependencies (security-pinned)
 ```
+
+## 🔒 Security Configuration
+
+### Security Settings (`config.py`)
+
+The application includes comprehensive security configuration:
+
+```python
+# File size limits
+MAX_EXCEL_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
+MAX_TEMPLATE_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+# Processing limits
+MAX_RECORDS_PER_BATCH = 10000
+MAX_PROCESSING_TIME = 3600  # 1 hour
+
+# Rate limiting
+MAX_OPERATIONS_PER_MINUTE = 60
+
+# Allowed file extensions
+ALLOWED_EXCEL_EXTENSIONS = {'.xlsx', '.xls'}
+ALLOWED_TEMPLATE_EXTENSIONS = {'.docx'}
+```
+
+### Validation Rules
+
+- **Shipment Numbers**: 8-12 digits, handles float format (e.g., `9010157586.0`)
+- **DO Numbers**: 6-15 digits, required field with format validation
+- **Text Fields**: Length limits, malicious content detection, XSS prevention
+- **File Paths**: Directory traversal prevention, path sanitization
+- **File Integrity**: SHA-256 verification for all processed files
 
 ## 🖥️ GUI Application Guide
 
@@ -83,7 +156,8 @@ Logistics Document Generator/
 
 2. **Load Your Data**
    - Click "LOAD DATA" button
-   - Application automatically finds Excel files in the `Data/` folder
+   - Application automatically finds and validates Excel files in the `Data/` folder
+   - Security validation ensures file integrity and prevents malicious files
    - View loaded shipments in the interactive table
 
 3. **Filter and Select Shipments**
@@ -96,61 +170,23 @@ Logistics Document Generator/
    - Click "GENERATE SELECTED" for chosen shipments
    - Click "GENERATE ALL" for complete dataset processing
    - Monitor progress with the real-time progress bar
-   - Review results in the console log
+   - Review results in the secure console log
 
-### GUI Features Overview
+### Enhanced GUI Security Features
 
-#### 🎛️ Control Bar
+#### 🛡️ Memory Management
 
-- **LOAD DATA**: Load Excel data from the Data folder
-- **CLEAR FILTERS**: Reset all active filters
-- **Search Box**: Real-time search across shipments and destinations
-- **SELECT ALL / DESELECT ALL**: Bulk selection controls
+- **Circular Buffers**: Console logs use `deque` with maximum size to prevent memory leaks
+- **Automatic Cleanup**: Periodic garbage collection and memory monitoring
+- **Resource Monitoring**: Real-time memory usage tracking and alerts
+- **Thread Safety**: All operations use proper locking mechanisms
 
-#### 📊 Data Table
+#### 🔒 Secure Operations
 
-- **Interactive Selection**: Click checkboxes to select individual shipments
-- **Column Sorting**: Click headers to sort data
-- **Real-time Filtering**: Instantly see filtered results
-- **Comprehensive Data View**: All shipment details in organized columns
-
-#### 📈 Status and Progress
-
-- **Selection Counter**: Shows selected vs. total shipments
-- **Unit Counter**: Displays total quantity for selected items
-- **Progress Bar**: Real-time processing progress
-- **Status Messages**: Clear feedback on all operations
-
-#### 🖥️ Console Log
-
-- **Real-time Logging**: All operations logged with timestamps
-- **Error Reporting**: Detailed error messages and stack traces
-- **Performance Metrics**: Processing rates and timing information
-- **Clear Console**: Reset log for new operations
-
-### Advanced GUI Features
-
-#### 🔍 Multi-Column Filtering
-
-- Click column headers to access advanced filters
-- Search within specific columns
-- Sort filter options alphabetically
-- Select multiple values per column
-- Combine filters across columns for precise results
-
-#### ⚡ Performance Optimizations
-
-- **Lazy Loading**: Efficient memory usage for large datasets
-- **Safe Operations**: Comprehensive error handling prevents crashes
-- **Cross-platform Fonts**: Automatic font detection and fallbacks
-- **Responsive UI**: Smooth operation even with large datasets
-
-#### 🛡️ Error Handling
-
-- **Data Validation**: Comprehensive checks before processing
-- **File System Checks**: Validates directories and permissions
-- **Processing Recovery**: Continues processing even if individual shipments fail
-- **User Feedback**: Clear error messages and recovery suggestions
+- **Input Validation**: All user inputs validated before processing
+- **File Validation**: Comprehensive file integrity checks before processing
+- **Rate Limiting**: Prevents resource exhaustion through operation limiting
+- **Error Recovery**: Secure error handling prevents information disclosure
 
 ## 📊 Data Requirements
 
@@ -158,34 +194,37 @@ Logistics Document Generator/
 
 **Location**: `Data/` folder  
 **Naming**: Must start with `"WM-SPN-CUS105 Open Order Report"`  
-**Format**: `.xlsx` or `.xls`
+**Format**: `.xlsx` or `.xls` (validated for security)
+**Size Limit**: 100MB maximum for security
 
 **Required Columns**:
 
-| Column | Description | Format |
-|--------|-------------|---------|
-| `Shipment Nbr` | Shipment identifier | Exactly 10 digits |
-| `DO #` | Delivery Order number | Minimum 8 digits |
-| `Label Type` | Shipment classification | Text |
-| `Order Type` | Order classification | Text |
-| `Pmt Term` | Payment terms | Text |
-| `Start Ship` | Ship date | Any date format (auto-converted to MM/DD/YYYY) |
-| `VAS` | Value Added Service | Y/N (converted to "VAS"/"NOT VAS") |
-| `Ship To` | Destination information | Text |
-| `PO` | Purchase Order numbers | Text (multiple POs aggregated) |
-| `Original Qty` | Quantity values | Numeric (auto-formatted with "Units" suffix) |
+| Column | Description | Validation |
+|--------|-------------|------------|
+| `Shipment Nbr` | Shipment identifier | 8-12 digits, handles float format |
+| `DO #` | Delivery Order number | 6-15 digits, required field |
+| `Label Type` | Shipment classification | Text, length limited |
+| `Order Type` | Order classification | Text, XSS prevention |
+| `Pmt Term` | Payment terms | Text, sanitized |
+| `Start Ship` | Ship date | Date format validation |
+| `VAS` | Value Added Service | Y/N validation |
+| `Ship To` | Destination information | Text, malicious content detection |
+| `PO` | Purchase Order numbers | Text, aggregated securely |
+| `Original Qty` | Quantity values | Numeric validation |
 
 ### Word Template
 
 **Location**: `Template/placard_template.docx`
+**Size Limit**: 10MB maximum for security
+**Integrity**: SHA-256 hash verification
 
 **Required Placeholders**:
 
 ```text
-{{Ship To}}        - Destination address
-{{Shipment Nbr}}   - Shipment number (cleaned)
-{{PO}}             - Purchase orders (newline-separated)
-{{DO #}}           - Delivery order (10-digit format)
+{{Ship To}}        - Destination address (sanitized)
+{{Shipment Nbr}}   - Shipment number (validated)
+{{PO}}             - Purchase orders (securely aggregated)
+{{DO #}}           - Delivery order (validated format)
 {{VAS}}            - Value added service status
 {{Original Qty}}   - Total quantity with "Units"
 {{Label Type}}     - Shipment classification
@@ -200,25 +239,28 @@ Logistics Document Generator/
 
 ```text
 1. Launch GUI: python placard_generator_gui.py
-2. Click "LOAD DATA" → System finds and loads Excel file
-3. Use search: "Chicago" → Filters to Chicago shipments
-4. Select specific shipments using checkboxes
-5. Click "GENERATE SELECTED" → Progress bar shows processing
-6. Review results in console log
-7. Find generated documents in Placards/ folder
+2. Click "LOAD DATA" → System finds, validates, and loads Excel file
+3. Security validation: File integrity check and malicious content scan
+4. Use search: "Chicago" → Filters to Chicago shipments
+5. Select specific shipments using checkboxes
+6. Click "GENERATE SELECTED" → Secure processing with progress tracking
+7. Review results in console log with security events
+8. Find generated documents in Placards/ folder
 ```
 
 ### Command-Line Usage
 
 #### 1. Manual Entry
 
-- Process specific shipment numbers
+- Process specific shipment numbers with validation
 - Supports batch input (comma-separated)
+- Comprehensive security checks for all inputs
 - Ideal for selective processing
 
 #### 2. Bulk Processing
 
-- Processes all valid shipments automatically
+- Processes all valid shipments with security validation
+- Rate limiting prevents resource exhaustion
 - Shows progress tracking every 10 shipments
 - Requires confirmation before starting
 - Perfect for complete dataset processing
@@ -228,6 +270,8 @@ Logistics Document Generator/
 ```text
 [2024-01-15 14:30:25] === Shipping Placard Generator ===
 [2024-01-15 14:30:26] Loading file: Data/WM-SPN-CUS105 Open Order Report 2024.xlsx
+[2024-01-15 14:30:26] Security validation: File integrity verified (SHA256: abc123...)
+[2024-01-15 14:30:26] Data validation passed for 1465 records
 [2024-01-15 14:30:26] Final dataset: 1465 rows ready for processing
 [2024-01-15 14:30:26] Dataset contains 266 unique valid shipments.
 
@@ -237,11 +281,11 @@ Choose an option:
 3. Exit
 
 Enter your choice (1-3): 1
-Enter Shipment Numbers: 1234567890, 9876543210
+Enter Shipment Numbers: 9010157586, 9010157584
 
-[2024-01-15 14:30:45] Processing shipment: 1234567890
-[2024-01-15 14:30:52] SUCCESS: Created Placards/Placard_1234567890.docx
-[2024-01-15 14:31:15] SUCCESS: Created Placards/Placard_9876543210.docx
+[2024-01-15 14:30:45] Processing shipment: 9010157586
+[2024-01-15 14:30:52] SUCCESS: Created Placards/Placard_9010157586.docx
+[2024-01-15 14:31:15] SUCCESS: Created Placards/Placard_9010157584.docx
 
 === Processing Summary ===
 Documents created: 2
@@ -249,6 +293,19 @@ Failed inputs: 0
 ```
 
 ## 📈 Enterprise Features
+
+### Comprehensive Security Logging
+
+**Security Event Tracking**: All security-related events logged with timestamps
+
+**Security Events Monitored**:
+
+- File integrity verification (SHA-256 hashes)
+- Input validation failures and malicious content detection
+- Rate limiting violations and resource exhaustion attempts
+- Path traversal attempts and file system security events
+- Memory usage monitoring and cleanup operations
+- Processing timeouts and resource limit violations
 
 ### Comprehensive CSV Logging
 
@@ -258,77 +315,99 @@ Failed inputs: 0
 
 - Session lifecycle (start/end with duration)
 - Data loading and validation results
+- Security validation events and threat detection
 - Processing mode selections
 - Individual shipment processing details
 - Bulk processing progress and summaries
-- Error tracking with detailed messages
+- Error tracking with detailed messages and security context
 
-**Log Structure** (11 columns):
+**Log Structure** (Enhanced with security fields):
 
 ```csv
 Timestamp, Session_ID, Event_Type, Shipment_Number, DO_Count, 
-Records_Found, Status, Output_File, Error_Message, Processing_Mode, Duration_Seconds
+Records_Found, Status, Output_File, Error_Message, Processing_Mode, 
+Duration_Seconds, Security_Hash, Validation_Status
 ```
 
 ### Real-time Interface Features
 
-- **GUI Console**: Real-time timestamped logging with color-coded messages
-- **Progress Tracking**: Visual progress bars with detailed status updates
-- **Performance Monitoring**: Processing rates and timing metrics
-- **Error Recovery**: Comprehensive error handling with user-friendly messages
+- **Secure GUI Console**: Real-time timestamped logging with security event highlighting
+- **Progress Tracking**: Visual progress bars with security validation status
+- **Performance Monitoring**: Processing rates, memory usage, and security metrics
+- **Error Recovery**: Comprehensive error handling with security-aware recovery mechanisms
 
 ### Advanced Data Processing
 
-**Data Transformation Pipeline**:
+**Secure Data Transformation Pipeline**:
 
-1. **File Discovery**: Automatic Excel file detection
-2. **Data Loading**: Pandas-powered efficient data reading
-3. **Data Cleaning**: Removes empty/invalid records
-4. **Validation**: Comprehensive format checking
-5. **Memory Storage**: Fast in-memory processing
+1. **File Discovery**: Automatic Excel file detection with integrity verification
+2. **Security Validation**: Comprehensive file and content security checks
+3. **Data Loading**: Pandas-powered efficient data reading with validation
+4. **Data Cleaning**: Secure removal of empty/invalid records
+5. **Validation**: Multi-layered format and security checking
+6. **Memory Storage**: Secure in-memory processing with monitoring
 
-**Document Generation**:
+**Secure Document Generation**:
 
-1. **Data Grouping**: Groups records by DO # using pandas
-2. **Data Aggregation**: Combines POs, sums quantities per DO #
-3. **Template Processing**: Advanced placeholder replacement
-4. **Formatting Preservation**: Maintains all Word formatting
-5. **Multi-page Assembly**: Creates separate pages per DO #
+1. **Data Grouping**: Secure grouping of records by DO # using validated pandas operations
+2. **Data Aggregation**: Secure combination of POs and quantity summation per DO #
+3. **Template Processing**: Secure placeholder replacement with input sanitization
+4. **Formatting Preservation**: Maintains all Word formatting with security validation
+5. **Multi-page Assembly**: Creates separate pages per DO # with integrity checks
 
 ## 🔧 Advanced Configuration
 
+### Security Configuration
+
+The application includes comprehensive security settings in `config.py`:
+
+```python
+# Security limits
+SECURITY_CONFIG = {
+    'max_file_size': 100 * 1024 * 1024,  # 100MB
+    'max_records': 10000,
+    'rate_limit': 60,  # operations per minute
+    'processing_timeout': 3600,  # 1 hour
+    'memory_limit': 500 * 1024 * 1024,  # 500MB
+}
+
+# Validation rules
+VALIDATION_RULES = {
+    'shipment_number': r'^\d{8,12}$',
+    'do_number': r'^\d{6,15}$',
+    'text_max_length': 1000,
+    'allow_empty_shipment': True,
+}
+```
+
 ### GUI Customization
 
-The GUI features a professional dark theme with:
+The GUI features a professional dark theme with security-focused design:
 
 - **Solid Color Design**: Consistent dark blue-gray background
 - **Standardized Buttons**: Uniform styling with proper text centering
 - **Responsive Layout**: Automatic centering and scaling
 - **Cross-platform Fonts**: Automatic detection of system fonts
 - **Accessibility**: High contrast colors and readable text
-
-### Formatting Preservation
-
-The application uses sophisticated techniques to preserve Word document formatting:
-
-- **Run-level formatting**: Fonts, sizes, colors, styles
-- **Paragraph formatting**: Alignment, spacing, line spacing
-- **Mixed formatting**: Different styles within single paragraphs
-- **Cross-run placeholders**: Handles complex placeholder placement
-- **Table formatting**: Preserves table styles and cell formatting
-
-### Data Formatting Rules
-
-**Automatic Transformations**:
-
-- `Shipment Nbr`: Removes decimal places (e.g., `1234567890.0` → `1234567890`)
-- `DO #`: Padded with leading zeros to 10 digits (e.g., `66455734` → `0066455734`)
-- `Start Ship`: Converted to MM/DD/YYYY format
-- `VAS`: Converted to "VAS" or "NOT VAS"
-- `Original Qty`: Summed with "Units" suffix (e.g., `"7782 Units"`)
-- `PO`: Multiple POs joined with newlines
+- **Security Indicators**: Visual feedback for security validation status
 
 ## 🚨 Error Handling & Troubleshooting
+
+### Security-Related Issues
+
+**File Security**:
+
+- **File integrity failure**: SHA-256 hash verification failed - file may be corrupted or tampered
+- **Path traversal detected**: Attempted directory traversal blocked - check file paths
+- **File size exceeded**: File exceeds security limits - reduce file size or adjust limits
+- **Malicious content detected**: Input contains potentially harmful content - review and sanitize
+
+**Validation Failures**:
+
+- **Rate limit exceeded**: Too many operations - wait before retrying
+- **Invalid input format**: Input doesn't match security validation rules
+- **Processing timeout**: Operation exceeded time limit - reduce dataset size
+- **Memory limit exceeded**: Insufficient memory - close other applications
 
 ### Common Issues
 
@@ -336,54 +415,51 @@ The application uses sophisticated techniques to preserve Word document formatti
 
 - **No Excel file found**: Verify file is in `Data/` folder with correct naming
 - **Template missing**: Confirm `placard_template.docx` exists in `Template/` folder
-- **Missing columns**: Check all 10 required columns exist (case-sensitive)
-- **GUI won't start**: Ensure all dependencies are installed (`pip install -r requirements.txt`)
+- **Missing columns**: Check all required columns exist (case-sensitive)
+- **Security validation failed**: Ensure files meet security requirements
 
 **Processing Issues**:
 
-- **Invalid shipment format**: Must be exactly 10 digits
-- **No data found**: Verify shipment exists and meets DO # validation (8+ digits)
+- **Invalid shipment format**: Must be 8-12 digits (flexible validation)
+- **No data found**: Verify shipment exists and meets validation requirements
 - **File save errors**: Check write permissions and ensure files aren't open elsewhere
-- **GUI freezing**: Check console log for detailed error messages
+- **Security blocking**: Check security logs for validation failures
 
-### GUI-Specific Troubleshooting
+### Enhanced Validation Rules
 
-**Display Issues**:
+- **Shipment Numbers**: 8-12 digits, handles float format (e.g., `9010157586.0` → `9010157586`)
+- **DO # Format**: 6-15 digits, validated with enhanced regex
+- **File Permissions**: Automatic handling of read/write access issues with security logging
+- **Data Existence**: Validates shipment exists in filtered dataset with integrity checks
 
-- **Fonts not loading**: GUI automatically detects and uses system fonts
-- **Layout problems**: Try resizing the window to trigger re-centering
-- **Table not updating**: Click "LOAD DATA" to refresh the data
+## 📊 Performance & Security Optimizations
 
-**Performance Issues**:
-
-- **Slow loading**: Large Excel files may take time to process
-- **Memory usage**: Close other applications if processing large datasets
-- **UI responsiveness**: Check console for background processing status
-
-### Validation Rules
-
-- **Shipment Numbers**: Exactly 10 digits, no letters/special characters
-- **DO # Format**: Minimum 8 digits, validated with regex
-- **File Permissions**: Automatic handling of read/write access issues
-- **Data Existence**: Validates shipment exists in filtered dataset
-
-## 📊 Performance Optimizations
+### Performance Features
 
 - **Single File Read**: Excel loaded once at startup for all operations
 - **Vectorized Operations**: Pandas operations for efficient data processing
-- **Memory-based Processing**: All operations use in-memory datasets
+- **Memory-based Processing**: All operations use secure in-memory datasets
 - **Template Reuse**: Efficient document copying with formatting preservation
 - **Batch Processing**: Multiple shipments processed in single session
-- **GUI Optimizations**: Lazy loading and safe operations prevent UI freezing
+
+### Security Optimizations
+
+- **Memory Management**: Circular buffers prevent memory leaks
+- **Resource Monitoring**: Real-time tracking of memory and CPU usage
+- **Rate Limiting**: Prevents resource exhaustion attacks
+- **Input Validation**: Multi-layered validation prevents malicious input
+- **File Integrity**: SHA-256 verification ensures file security
+- **Secure Operations**: All file operations use validated, sanitized paths
 
 ## 🎯 Output Specifications
 
 **Generated Documents**:
 
-- **Location**: `Placards/` folder (auto-created)
-- **Naming**: `Placard_[ShipmentNumber].docx`
+- **Location**: `Placards/` folder (auto-created with secure permissions)
+- **Naming**: `Placard_[ShipmentNumber].docx` (sanitized filenames)
 - **Structure**: Multi-page document (one page per DO #)
-- **Formatting**: Complete template formatting preserved
+- **Formatting**: Complete template formatting preserved with integrity checks
+- **Security**: All content validated and sanitized before document generation
 
 **Quality Assurance**:
 
@@ -391,30 +467,62 @@ The application uses sophisticated techniques to preserve Word document formatti
 - Quantities with "Units" suffix
 - Clean shipment numbers (no decimals)
 - Properly formatted dates (MM/DD/YYYY)
-- All template placeholders replaced accurately
+- All template placeholders replaced with validated content
+- File integrity verification for all generated documents
 
 ## 🏗 Architecture Overview
 
-Built using object-oriented design with comprehensive error handling:
+Built using object-oriented design with comprehensive security and error handling:
+
+### Application Security Architecture
+
+- **Multi-layered Validation**: Input validation at multiple processing stages
+- **Secure File Operations**: All file operations use `SecureFileHandler` class
+- **Memory Management**: Automatic cleanup with `MemoryManager` utilities
+- **Rate Limiting**: `RateLimiter` class prevents resource exhaustion
+- **Audit Logging**: Comprehensive security event logging throughout
 
 ### GUI Architecture
 
 - **Dear PyGui Framework**: Modern, fast GUI with professional styling
-- **Threaded Processing**: Background processing prevents UI freezing
-- **Safe Operations**: Comprehensive error handling for all GUI operations
+- **Thread-Safe Processing**: Background processing with proper synchronization
+- **Memory-Safe Operations**: Circular buffers and automatic cleanup
+- **Security Integration**: Real-time security validation and monitoring
 - **Cross-platform Compatibility**: Works on Windows, macOS, and Linux
 
 ### Core Engine (`PlacardGenerator` class)
 
-- **Memory-efficient processing** with pandas vectorized operations
-- **Advanced formatting preservation** across document generations
-- **Robust error handling** with detailed validation and user feedback
-- **Batch processing capabilities** for enterprise-scale operations
-- **Comprehensive logging** for audit trails and performance monitoring
+- **Memory-efficient processing** with secure pandas vectorized operations
+- **Advanced formatting preservation** with security validation
+- **Robust error handling** with security-aware validation and user feedback
+- **Batch processing capabilities** with rate limiting for enterprise-scale operations
+- **Comprehensive logging** with security event tracking for audit trails
 
 ## 🔄 Development History
 
-### Version 2.0.0 - GUI Release (Current)
+### Version 3.0.0 - Security Hardening (Current)
+
+**Major Security Enhancements**:
+
+1. **Comprehensive Security Framework**: Complete security utilities module with validation, sanitization, and protection
+2. **Input Validation System**: Multi-layered validation for all data inputs with malicious content detection
+3. **File Security**: SHA-256 integrity verification, path traversal protection, and secure file operations
+4. **Memory Management**: Automatic memory cleanup, leak prevention, and resource monitoring
+5. **Rate Limiting**: Configurable operation limits to prevent resource exhaustion attacks
+6. **Security Logging**: Detailed security event logging with audit trails and threat detection
+7. **Dependency Security**: Pinned dependency versions and security-focused package management
+
+**Security Fixes**:
+
+- ✅ **CRITICAL**: Fixed path traversal vulnerabilities in file operations
+- ✅ **HIGH**: Implemented secure document template processing with validation
+- ✅ **HIGH**: Added comprehensive input validation for all data fields
+- ✅ **MEDIUM**: Secured file system access with proper validation
+- ✅ **HIGH**: Fixed memory leaks in GUI with circular buffers and cleanup
+- ✅ **HIGH**: Resolved race conditions with proper thread synchronization
+- ✅ **MEDIUM**: Enhanced exception handling with security-aware error messages
+
+### Version 2.0.0 - GUI Release
 
 **Major New Features**:
 
@@ -438,21 +546,36 @@ Built using object-oriented design with comprehensive error handling:
 
 ### Impact
 
-**Transformation**: From basic document generator → Professional enterprise solution with modern GUI
+**Transformation**: From basic document generator → **Enterprise-grade secure solution** with modern GUI and comprehensive security framework
 
-**Current Capabilities**:
+**Current Security Capabilities**:
 
-- ✅ Modern GUI interface with professional styling
-- ✅ Interactive data management and real-time filtering
-- ✅ Bulk processing with visual progress tracking
-- ✅ Complete audit trail and compliance logging
-- ✅ Cross-platform compatibility with automatic font detection
-- ✅ Enterprise error handling and recovery mechanisms
-- ✅ Performance monitoring and optimization
-- ✅ Comprehensive documentation and user support
+- ✅ **Enterprise Security**: Comprehensive security framework with threat protection
+- ✅ **Input Validation**: Multi-layered validation with malicious content detection
+- ✅ **File Security**: SHA-256 integrity verification and secure file operations
+- ✅ **Memory Safety**: Automatic cleanup and leak prevention with monitoring
+- ✅ **Rate Limiting**: Resource exhaustion protection with configurable limits
+- ✅ **Audit Logging**: Complete security event tracking and compliance logging
+- ✅ **Dependency Security**: Pinned versions and security-focused package management
 
----
+## 🛡️ Security Compliance
 
-**Ready for Enterprise Use**: Full compliance capabilities, modern GUI interface, comprehensive error handling, and complete documentation for production environments.
+For detailed security information, vulnerability reporting, and security best practices, see [SECURITY.md](SECURITY.md).
 
-**Recommended Usage**: Use the GUI interface (`placard_generator_gui.py`) for interactive work and the command-line interface (`placard_generator.py`) for automation and scripting.
+**Security Standards**:
+
+- Input validation and sanitization
+- File integrity verification
+- Path traversal prevention
+- Resource exhaustion protection
+- Memory safety and leak prevention
+- Comprehensive audit logging
+- Secure dependency management
+
+**Recommended Security Practices**:
+
+- Regular security updates
+- File integrity monitoring
+- Access control and permissions
+- Network security considerations
+- Data handling and privacy protection

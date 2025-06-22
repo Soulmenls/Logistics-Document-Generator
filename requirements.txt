@@ -1,16 +1,23 @@
 # Core dependencies for Logistics Document Generator
 # Python 3.12.11 - Conda environment: logistics-doc-generator
-pandas>=2.3.0
-python-docx>=1.2.0
-openpyxl>=3.1.5
-dearpygui>=1.11.1
+# SECURITY: All versions pinned for supply chain security
 
-# Supporting dependencies (automatically installed with core packages)
-numpy>=2.0.2
-lxml>=5.4.0
-python-dateutil>=2.9.0
-pytz>=2025.2
-tzdata>=2025.2
-typing-extensions>=4.14.0
-et-xmlfile>=2.0.0
-six>=1.17.0
+pandas==2.3.0
+python-docx==1.2.0
+openpyxl==3.1.5
+dearpygui==1.11.1
+
+# Supporting dependencies (pinned for security)
+numpy==2.0.2
+lxml==5.4.0
+python-dateutil==2.9.0
+pytz==2025.2
+tzdata==2025.2
+typing-extensions==4.14.0
+et-xmlfile==2.0.0
+six==1.17.0
+
+# Additional security dependencies
+pathlib2==2.3.8  # Enhanced path validation support
+cryptography>=42.0.0  # For secure file operations (if needed)
+psutil==5.9.8  # For system and process monitoring

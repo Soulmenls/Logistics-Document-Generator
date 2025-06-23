@@ -1,6 +1,6 @@
 # Logistics Document Generator
 
-A professional Python application that generates multi-page shipping placards from Excel data using Word templates. Features both a modern GUI interface and command-line operation, with **enterprise-grade security**, comprehensive logging, bulk processing capabilities, and advanced document formatting preservation.
+A secure Python application that automates the generation of professional shipping placards from Excel data. Transform spreadsheet logistics data into properly formatted Word documents using customizable templates, with both modern GUI and command-line interfaces.
 
 ## 🚀 Key Features
 

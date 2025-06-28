@@ -1,0 +1,51 @@
+# Manifest file for Logistics Document Generator package
+# This file specifies which files to include in the distribution package
+
+# Include documentation
+include README.md
+include SECURITY.md
+include requirements.txt
+include environment.yml
+
+# Include package configuration
+include setup.py
+include MANIFEST.in
+
+# Include template files
+recursive-include logistics_generator/templates *.docx
+recursive-include logistics_generator/templates *.doc
+
+# Include any additional data files
+recursive-include logistics_generator *.json
+recursive-include logistics_generator *.yaml
+recursive-include logistics_generator *.yml
+recursive-include logistics_generator *.txt
+
+# Exclude development and temporary files
+exclude *.log
+exclude *.pyc
+exclude .DS_Store
+exclude Thumbs.db
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .git*
+recursive-exclude * .vscode*
+recursive-exclude * *.egg-info*
+
+# Exclude the original development files (since they're now in the package)
+exclude placard_generator.py
+exclude placard_generator_gui.py
+exclude security_utils.py
+exclude config.py
+
+# Exclude runtime directories
+exclude Data/
+exclude Placards/
+exclude Logs/
+exclude Template/
+exclude temp/
+prune Data
+prune Placards
+prune Logs
+prune Template
+prune temp 

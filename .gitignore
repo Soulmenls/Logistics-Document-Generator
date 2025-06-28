@@ -163,4 +163,57 @@ Thumbs.db
 
 # Keep template folder structure but ignore sample files
 Template/*.docx
-!Template/placard_template.docx 
+!Template/placard_template.docx
+
+# Python Package Development
+# Build artifacts (additional modern patterns)
+.build/
+.pdm-python
+.ruff_cache/
+.black-cache/
+
+# Package backup and temporary files
+pyproject.toml.bak
+setup.py.bak
+requirements.txt.bak
+*.orig
+.isort.cfg.bak
+
+# Development and testing artifacts  
+.benchmarks/
+
+# Documentation builds
+docs/build/
+
+# Package distribution (keep source, ignore built packages)
+# Note: We want to keep the original dist/ ignore but add specificity
+dist/*.whl
+dist/*.tar.gz
+dist/*.zip
+
+# IDE development files (additional)
+.vscode/settings.json
+.vscode/launch.json
+
+# Development scripts and temporary analysis files
+dev_*.py
+test_*.py
+debug_*.py
+analyze_*.py
+temp_*.py
+scratch_*.py
+
+# Package development artifacts
+logistics_document_generator.egg-info/
+logistics_generator.egg-info/
+
+# Installation testing
+test_install/
+temp_env/
+test_env/
+
+# Backup files from package creation
+placard_generator.py.bak
+security_utils.py.bak
+config.py.bak
+placard_generator_gui.py.bak 
